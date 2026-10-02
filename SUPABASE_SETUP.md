@@ -85,7 +85,23 @@
 3. Set `id` as Primary Key
 4. Click "Save"
 
-### 3. Update Row Level Security (RLS)
+### 3. Create Storage Bucket for Avatars (IMPORTANT)
+For worker profile photos to sync across devices, you need to create a storage bucket:
+
+1. Click "Storage" in left sidebar
+2. Click "Create a new bucket"
+3. Bucket name: `worker-avatars`
+4. Click "Create bucket"
+5. Click on the `worker-avatars` bucket
+6. Click "Policies" → "New policy"
+7. Policy type: "Full access"
+8. Policy name: "Public Access"
+9. Check "Read" and "Upload" permissions
+10. Click "Save"
+
+**This enables public read and upload access for worker avatars.**
+
+### 4. Update Row Level Security (RLS)
 For development, disable RLS to allow public access:
 
 1. Click "Authentication" in left sidebar
@@ -94,7 +110,7 @@ For development, disable RLS to allow public access:
 
 **Note:** For production, you should enable RLS and implement proper authentication.
 
-### 4. Update supabase-config.js
+### 5. Update supabase-config.js
 Open `supabase-config.js` and replace `YOUR_SUPABASE_ANON_KEY` with your actual API key from step 1.
 
 ```javascript
@@ -102,7 +118,7 @@ const supabaseUrl = 'https://vmcnpjqrlqmmsaeygbny.supabase.co';
 const supabaseKey = 'YOUR_ACTUAL_ANON_KEY_HERE'; // Replace this
 ```
 
-### 5. Test the Integration
+### 6. Test the Integration
 1. Refresh your browser
 2. Check browser console (F12) for errors
 3. If you see "All data loaded from Supabase", it's working!
@@ -120,7 +136,7 @@ const supabaseKey = 'YOUR_ACTUAL_ANON_KEY_HERE'; // Replace this
 ## What Gets Synced
 
 - ✅ Workers data (name, mobile, whatsapp, department, etc.)
-- ✅ Worker photos (stored as base64)
+- ✅ Worker photos (stored in Supabase Storage - syncs across devices!)
 - ✅ Worker card colors
 - ✅ Activities/Logs
 - ✅ Sticky notes
@@ -161,9 +177,10 @@ If Supabase is not set up or fails, the app automatically falls back to localSto
 - [ ] Create activities table with all columns
 - [ ] Create notes table with all columns
 - [ ] Create settings table with all columns
+- [ ] Create storage bucket: `worker-avatars` with public read/upload access
 - [ ] Disable RLS for development
 - [ ] Refresh browser and test
-- [ ] Add a worker and verify sync
+- [ ] Add a worker with photo and verify sync
 
 ## Deployment Note
 

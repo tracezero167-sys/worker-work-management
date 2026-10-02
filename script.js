@@ -27,20 +27,15 @@ async function loadWorkersFromSupabase() {
         
         if (error) throw error;
         
-        // Merge with localStorage to get avatars (avatars stored locally only)
-        const localWorkers = JSON.parse(localStorage.getItem('workers')) || [];
-        const workersWithAvatars = (data || []).map(worker => {
-            const localWorker = localWorkers.find(w => w.id === worker.id);
-            return {
-                ...worker,
-                avatar: localWorker?.avatar || null,
-                dailyWork: Array.isArray(worker.dailyWork) ? worker.dailyWork : [],
-                monthlyWork: Array.isArray(worker.monthlyWork) ? worker.monthlyWork : [],
-                yearlyWork: Array.isArray(worker.yearlyWork) ? worker.yearlyWork : []
-            };
-        });
+        // Initialize work arrays if not arrays
+        const workersWithArrays = (data || []).map(worker => ({
+            ...worker,
+            dailyWork: Array.isArray(worker.dailyWork) ? worker.dailyWork : [],
+            monthlyWork: Array.isArray(worker.monthlyWork) ? worker.monthlyWork : [],
+            yearlyWork: Array.isArray(worker.yearlyWork) ? worker.yearlyWork : []
+        }));
         
-        workers = workersWithAvatars;
+        workers = workersWithArrays;
         console.log('Workers loaded from Supabase:', workers.length);
     } catch (error) {
         console.error('Error loading workers:', error);
@@ -52,14 +47,14 @@ async function loadWorkersFromSupabase() {
 async function saveWorkerToSupabase(worker) {
     try {
         // Only include columns that exist in the Workers table
-        // Exclude avatar to avoid size limit errors (avatar stored in localStorage only)
+        // Avatar URL will be stored if uploaded to Supabase Storage
         const workerData = {
             id: worker.id,
             name: worker.name,
             mobile: worker.mobile,
             department: worker.department,
             details: worker.details,
-            avatar: '', // Empty string to satisfy NOT NULL constraint
+            avatar: worker.avatar || '', // Store avatar URL or empty string
             cardColor: worker.cardColor,
             dailyWork: worker.dailyWork,
             monthlyWork: worker.monthlyWork,
@@ -85,6 +80,35 @@ async function saveWorkerToSupabase(worker) {
             localWorkers.push(worker);
         }
         localStorage.setItem('workers', JSON.stringify(localWorkers));
+    }
+}
+
+// Upload image to Supabase Storage
+async function uploadAvatarToSupabase(file, workerId) {
+    try {
+        if (typeof window.supabase === 'undefined') {
+            throw new Error('Supabase not initialized');
+        }
+
+        const fileName = `${workerId}_${Date.now()}.${file.name.split('.').pop()}`;
+        const filePath = `avatars/${fileName}`;
+
+        const { data, error } = await window.supabase.storage
+            .from('worker-avatars')
+            .upload(filePath, file);
+
+        if (error) throw error;
+
+        // Get public URL
+        const { data: { publicUrl } } = window.supabase.storage
+            .from('worker-avatars')
+            .getPublicUrl(filePath);
+
+        console.log('Avatar uploaded to Supabase:', publicUrl);
+        return publicUrl;
+    } catch (error) {
+        console.error('Error uploading avatar:', error);
+        return null;
     }
 }
 
@@ -794,29 +818,26 @@ document.getElementById('addWorkerForm').addEventListener('submit', (e) => {
     const details = document.getElementById('workerDetails').value.trim();
     const avatarInput = document.getElementById('workerAvatarInput');
     
-    // Handle avatar upload
-    let avatarData = null;
+    // Handle avatar upload to Supabase Storage
+    let avatarUrl = null;
     if (avatarInput.files && avatarInput.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            avatarData = e.target.result;
-            saveWorkerWithAvatar(avatarData);
-        };
-        reader.readAsDataURL(avatarInput.files[0]);
+        const workerId = Date.now().toString();
+        avatarUrl = await uploadAvatarToSupabase(avatarInput.files[0], workerId);
+        saveWorkerWithAvatar(avatarUrl, workerId);
     } else {
-        saveWorkerWithAvatar(null);
+        saveWorkerWithAvatar(null, Date.now().toString());
     }
     
-    function saveWorkerWithAvatar(avatarData) {
+    function saveWorkerWithAvatar(avatarUrl, workerId) {
         if (name && mobile) {
             const newWorker = {
-                id: Date.now().toString(),
+                id: workerId,
                 name: name,
                 mobile: mobile,
                 // Note: whatsapp field not in Workers table yet, will add it later
                 department: department,
                 details: details,
-                avatar: avatarData,
+                avatar: avatarUrl,
                 cardColor: '#667eea',
                 dailyWork: [],
                 monthlyWork: [],
@@ -1059,14 +1080,14 @@ document.getElementById('avatarUploadBtn').addEventListener('click', () => {
     document.getElementById('avatarUpload').click();
 });
 
-document.getElementById('avatarUpload').addEventListener('change', (e) => {
+document.getElementById('avatarUpload').addEventListener('change', async (e) => {
     if (e.target.files && e.target.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            const avatarData = event.target.result;
-            
+        // Upload to Supabase Storage
+        const avatarUrl = await uploadAvatarToSupabase(e.target.files[0], currentWorker.id);
+        
+        if (avatarUrl) {
             // Update current worker's avatar
-            currentWorker.avatar = avatarData;
+            currentWorker.avatar = avatarUrl;
             
             // Update in workers array
             const workerIndex = workers.findIndex(w => w.id === currentWorker.id);
@@ -1086,14 +1107,13 @@ document.getElementById('avatarUpload').addEventListener('change', (e) => {
             }
             
             const img = document.createElement('img');
-            img.src = avatarData;
+            img.src = avatarUrl;
             img.alt = currentWorker.name;
             avatarContainer.appendChild(img);
             icon.style.display = 'none';
             
             addActivity('Profile photo updated', `${currentWorker.name}'s profile photo has been updated`, 'worker');
-        };
-        reader.readAsDataURL(e.target.files[0]);
+        }
     }
 });
 
