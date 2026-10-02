@@ -1297,6 +1297,37 @@ body {
 .worker-card .card-color-btn:hover {
     background: var(--accent-purple);
     color: var(--white);
+}
+
+.worker-card .card-delete-btn {
+    position: absolute;
+    top: 10px;
+    right: 50px;
+    width: 32px;
+    height: 32px;
+    background: rgba(233, 69, 96, 0.9);
+    border: 2px solid var(--accent-pink);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    font-size: 0.85rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: all var(--transition-fast);
+    z-index: 10;
+}
+
+.worker-card:hover .card-delete-btn {
+    opacity: 1;
+}
+
+.worker-card .card-delete-btn:hover {
+    background: var(--accent-pink);
+    transform: scale(1.1);
+}
+    color: var(--white);
     border-color: var(--accent-purple);
     transform: scale(1.1);
 }

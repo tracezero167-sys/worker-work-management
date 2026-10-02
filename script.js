@@ -962,9 +962,12 @@ function renderWorkerList() {
             <button class="card-color-btn" data-worker-id="${worker.id}" title="Change card color">
                 <i class="fas fa-palette"></i>
             </button>
+            <button class="card-delete-btn" data-worker-id="${worker.id}" title="Delete worker">
+                <i class="fas fa-trash"></i>
+            </button>
             <div class="worker-card-avatar">
-                ${localAvatar 
-                    ? `<img src="${localAvatar}" alt="${escapeHtml(worker.name)}">` 
+                ${localAvatar
+                    ? `<img src="${localAvatar}" alt="${escapeHtml(worker.name)}">`
                     : `<i class="fas fa-user"></i>`
                 }
             </div>
@@ -985,7 +988,15 @@ function renderWorkerList() {
                 showCardColorPicker(workerId);
                 return;
             }
-            
+
+            // Check if delete button was clicked
+            if (e.target.closest('.card-delete-btn')) {
+                e.stopPropagation();
+                const workerId = e.target.closest('.card-delete-btn').dataset.workerId;
+                deleteWorker(workerId);
+                return;
+            }
+
             const workerId = card.dataset.workerId;
             currentWorker = workers.find(w => w.id === workerId);
             if (currentWorker) {
@@ -1009,6 +1020,58 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
         renderWorkerList();
     });
 });
+
+// Delete Worker
+async function deleteWorker(workerId) {
+    const worker = workers.find(w => w.id === workerId);
+    if (!worker) {
+        console.error('Worker not found:', workerId);
+        return;
+    }
+
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete ${worker.name}? This action cannot be undone.`)) {
+        return;
+    }
+
+    console.log('Deleting worker:', worker.name);
+
+    try {
+        // Delete from Supabase
+        const { error: supabaseError } = await window.supabase
+            .from('Workers')
+            .delete()
+            .eq('id', workerId);
+
+        if (supabaseError) {
+            console.error('Error deleting worker from Supabase:', supabaseError);
+            throw supabaseError;
+        }
+
+        console.log('Worker deleted from Supabase');
+
+        // Delete from local workers array
+        workers = workers.filter(w => w.id !== workerId);
+
+        // Delete avatar from localStorage
+        const avatars = JSON.parse(localStorage.getItem('workerAvatars') || '{}');
+        delete avatars[workerId];
+        localStorage.setItem('workerAvatars', JSON.stringify(avatars));
+
+        console.log('Avatar deleted from localStorage');
+
+        // Add activity log
+        addActivity('Worker deleted', `${worker.name} has been deleted from the system`, 'worker');
+
+        // Re-render worker list
+        renderWorkerList();
+
+        console.log('Worker deleted successfully');
+    } catch (error) {
+        console.error('Error deleting worker:', error);
+        alert('Error deleting worker. Please try again.');
+    }
+}
 
 // Worker Card Color Picker
 function showCardColorPicker(workerId) {
