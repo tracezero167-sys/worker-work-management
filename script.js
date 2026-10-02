@@ -17,7 +17,11 @@ let inputStylingSettings = {};
 // Supabase Functions
 async function loadWorkersFromSupabase() {
     try {
-        const { data, error } = await supabase
+        if (typeof window.supabase === 'undefined') {
+            throw new Error('Supabase not initialized');
+        }
+        
+        const { data, error } = await window.supabase
             .from('workers')
             .select('*');
         
@@ -33,7 +37,7 @@ async function loadWorkersFromSupabase() {
 
 async function saveWorkerToSupabase(worker) {
     try {
-        const { error } = await supabase
+        const { error } = await window.supabase
             .from('workers')
             .upsert(worker);
         
@@ -55,7 +59,7 @@ async function saveWorkerToSupabase(worker) {
 
 async function deleteWorkerFromSupabase(workerId) {
     try {
-        const { error } = await supabase
+        const { error } = await window.supabase
             .from('workers')
             .delete()
             .eq('id', workerId);
@@ -73,7 +77,11 @@ async function deleteWorkerFromSupabase(workerId) {
 
 async function loadActivitiesFromSupabase() {
     try {
-        const { data, error } = await supabase
+        if (typeof window.supabase === 'undefined') {
+            throw new Error('Supabase not initialized');
+        }
+        
+        const { data, error } = await window.supabase
             .from('activities')
             .select('*')
             .order('timestamp', { ascending: false })
@@ -90,7 +98,7 @@ async function loadActivitiesFromSupabase() {
 
 async function saveActivityToSupabase(activity) {
     try {
-        const { error } = await supabase
+        const { error } = await window.supabase
             .from('activities')
             .upsert(activity);
         
@@ -109,7 +117,11 @@ async function saveActivityToSupabase(activity) {
 
 async function loadNotesFromSupabase() {
     try {
-        const { data, error } = await supabase
+        if (typeof window.supabase === 'undefined') {
+            throw new Error('Supabase not initialized');
+        }
+        
+        const { data, error } = await window.supabase
             .from('notes')
             .select('*');
         
@@ -136,7 +148,7 @@ async function loadNotesFromSupabase() {
             ];
             // Save default notes to Supabase
             for (const note of notes) {
-                await supabase.from('notes').upsert(note);
+                await window.supabase.from('notes').upsert(note);
             }
         }
         console.log('Notes loaded from Supabase:', notes.length);
@@ -163,7 +175,7 @@ async function loadNotesFromSupabase() {
 
 async function saveNoteToSupabase(note) {
     try {
-        const { error } = await supabase
+        const { error } = await window.supabase
             .from('notes')
             .upsert(note);
         
@@ -184,7 +196,7 @@ async function saveNoteToSupabase(note) {
 
 async function deleteNoteFromSupabase(noteId) {
     try {
-        const { error } = await supabase
+        const { error } = await window.supabase
             .from('notes')
             .delete()
             .eq('id', noteId);
@@ -201,7 +213,11 @@ async function deleteNoteFromSupabase(noteId) {
 
 async function loadSettingsFromSupabase() {
     try {
-        const { data, error } = await supabase
+        if (typeof window.supabase === 'undefined') {
+            throw new Error('Supabase not initialized');
+        }
+        
+        const { data, error } = await window.supabase
             .from('settings')
             .select('*')
             .eq('id', 'inputStyling')
@@ -222,7 +238,7 @@ async function loadSettingsFromSupabase() {
 async function saveSettingsToSupabase() {
     try {
         const settingsWithId = { ...inputStylingSettings, id: 'inputStyling' };
-        const { error } = await supabase
+        const { error } = await window.supabase
             .from('settings')
             .upsert(settingsWithId);
         
@@ -437,7 +453,7 @@ if (document.getElementById('addNoteBtn')) {
 }
 
 // Initialize Supabase and load data
-if (typeof supabase !== 'undefined') {
+if (typeof window.supabase !== 'undefined') {
     loadAllData().then(() => {
         applySavedFont();
         renderNotes();
