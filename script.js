@@ -56,6 +56,7 @@ async function saveWorkerToSupabase(worker) {
             mobile: worker.mobile,
             department: worker.department,
             details: worker.details,
+            avatar: '', // Empty string to satisfy NOT NULL constraint
             cardColor: worker.cardColor,
             dailyWork: worker.dailyWork,
             monthlyWork: worker.monthlyWork,
