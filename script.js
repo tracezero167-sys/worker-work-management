@@ -107,12 +107,27 @@ async function saveWorkerToSupabase(worker) {
 // Upload image to localStorage (PERMANENT SOLUTION - Reliable)
 async function uploadAvatarToLocal(file, workerId) {
     return new Promise((resolve) => {
+        // Check file size (limit to 500KB to avoid quota issues)
+        const maxSize = 500 * 1024; // 500KB
+        if (file.size > maxSize) {
+            console.error('File too large for localStorage:', file.size, 'bytes');
+            alert('Image is too large. Please use an image smaller than 500KB.');
+            resolve(null);
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = (e) => {
-            console.log('Avatar saved to localStorage (permanent solution)');
-            const avatarData = e.target.result;
-            saveAvatarToLocal(workerId, avatarData);
-            resolve(avatarData);
+            try {
+                console.log('Avatar saved to localStorage (permanent solution)');
+                const avatarData = e.target.result;
+                saveAvatarToLocal(workerId, avatarData);
+                resolve(avatarData);
+            } catch (error) {
+                console.error('Failed to save avatar to localStorage:', error);
+                alert('Error saving avatar. Image may be too large.');
+                resolve(null);
+            }
         };
         reader.onerror = () => {
             console.error('Failed to read file for localStorage');
@@ -1901,26 +1916,31 @@ function applySavedInputStyling() {
 
 // Show toolbar when input is focused
 function showInputToolbar(input) {
+    // Prevent showing toolbar if already shown for the same input
+    if (currentActiveInput === input && inputStylingToolbar.classList.contains('active')) {
+        return;
+    }
+
     currentActiveInput = input;
-    
+
     console.log('Toolbar shown for input:', input.id || input.name);
-    
+
     // Calculate position relative to input
     const inputRect = input.getBoundingClientRect();
     const toolbarWidth = inputStylingToolbar.offsetWidth || 400;
-    
+
     // Position toolbar above the input
     inputStylingToolbar.style.position = 'fixed';
     inputStylingToolbar.style.left = inputRect.left + 'px';
     inputStylingToolbar.style.top = (inputRect.top - 60) + 'px';
-    
+
     // Ensure toolbar doesn't go off screen
     if (inputRect.left + toolbarWidth > window.innerWidth) {
         inputStylingToolbar.style.left = (window.innerWidth - toolbarWidth - 20) + 'px';
     }
-    
+
     inputStylingToolbar.classList.add('active');
-    
+
     // Load current input's settings or use defaults
     const inputId = input.id || input.name || input.classList[0];
     const settings = inputStylingSettings[inputId] || {
@@ -1928,9 +1948,9 @@ function showInputToolbar(input) {
         color: "#2d3436",
         fontSize: "16px"
     };
-    
+
     console.log('Loaded settings:', settings);
-    
+
     // Update toolbar controls
     inputFontSelector.value = settings.fontFamily;
     inputColorPicker.value = settings.color;
