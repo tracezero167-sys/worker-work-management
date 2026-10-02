@@ -33,7 +33,10 @@ async function loadWorkersFromSupabase() {
             const localWorker = localWorkers.find(w => w.id === worker.id);
             return {
                 ...worker,
-                avatar: localWorker?.avatar || null
+                avatar: localWorker?.avatar || null,
+                dailyWork: Array.isArray(worker.dailyWork) ? worker.dailyWork : [],
+                monthlyWork: Array.isArray(worker.monthlyWork) ? worker.monthlyWork : [],
+                yearlyWork: Array.isArray(worker.yearlyWork) ? worker.yearlyWork : []
             };
         });
         
@@ -721,14 +724,16 @@ function updateDashboardStats() {
     
     workers.forEach(worker => {
         ['dailyWork', 'monthlyWork', 'yearlyWork'].forEach(workType => {
-            worker[workType].forEach(work => {
-                if (work.status === 'pending') {
-                    activeTasks++;
-                    pendingTasks++;
-                } else if (work.status === 'done') {
-                    completedTasks++;
-                }
-            });
+            if (Array.isArray(worker[workType])) {
+                worker[workType].forEach(work => {
+                    if (work.status === 'pending') {
+                        activeTasks++;
+                        pendingTasks++;
+                    } else if (work.status === 'done') {
+                        completedTasks++;
+                    }
+                });
+            }
         });
     });
     
