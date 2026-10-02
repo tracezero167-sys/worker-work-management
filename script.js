@@ -773,8 +773,19 @@ document.getElementById('cancelAddWorker').addEventListener('click', () => {
     showScreen('home');
 });
 
+// Prevent duplicate submissions
+let isSubmitting = false;
+
 document.getElementById('addWorkerForm').addEventListener('submit', (e) => {
     e.preventDefault();
+    
+    // Prevent multiple submissions
+    if (isSubmitting) {
+        console.log('Form already submitting, preventing duplicate');
+        return;
+    }
+    
+    isSubmitting = true;
     
     const name = document.getElementById('workerName').value.trim();
     const mobile = document.getElementById('workerMobile').value.trim();
@@ -820,6 +831,13 @@ document.getElementById('addWorkerForm').addEventListener('submit', (e) => {
             
             document.getElementById('addWorkerForm').reset();
             showScreen('workerList');
+            
+            // Reset submission flag after a delay
+            setTimeout(() => {
+                isSubmitting = false;
+            }, 1000);
+        } else {
+            isSubmitting = false;
         }
     }
 });
