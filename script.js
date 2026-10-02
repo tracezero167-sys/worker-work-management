@@ -1568,6 +1568,7 @@ function updateWorkerAndRefresh() {
         saveWorkerToSupabase(currentWorker);
     }
     renderWorkList(currentWorkType);
+    updateDashboardStats();
 }
 
 // ============================================
