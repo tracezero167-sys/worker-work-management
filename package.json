@@ -14,5 +14,17 @@
     "professional"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tracezero167-sys/worker-work-management.git"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/tracezero167-sys/worker-work-management/issues"
+  },
+  "homepage": "https://github.com/tracezero167-sys/worker-work-management#readme",
+  "dependencies": {
+    "@playwright/test": "^1.63.0"
+  }
 }

@@ -13,9 +13,54 @@ let notifications = [];
 let currentCardColorWorkerId = null;
 let notes = [];
 let inputStylingSettings = {};
+const ENABLE_SUPABASE_SETTINGS_SYNC = false;
+
+function readLocalStorageJson(key, fallback = []) {
+    try {
+        const rawValue = localStorage.getItem(key);
+        if (rawValue === null || rawValue === undefined || rawValue === '') {
+            return fallback;
+        }
+        const parsedValue = JSON.parse(rawValue);
+        return parsedValue ?? fallback;
+    } catch (error) {
+        console.warn(`Local storage value for "${key}" is invalid and was ignored.`, error.message);
+        return fallback;
+    }
+}
+
+function writeLocalStorageJson(key, value) {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+    } catch (error) {
+        console.warn(`Unable to save "${key}" to localStorage.`, error.message);
+        return false;
+    }
+}
 
 // Supabase Functions
+function persistWorkersToLocalStorage() {
+    writeLocalStorageJson('workers', workers);
+}
+
+function restoreWorkersFromLocalStorage() {
+    const savedWorkers = readLocalStorageJson('workers', []);
+    if (Array.isArray(savedWorkers) && savedWorkers.length > 0) {
+        workers = savedWorkers.map(worker => ({
+            ...worker,
+            dailyWork: Array.isArray(worker.dailyWork) ? worker.dailyWork : [],
+            monthlyWork: Array.isArray(worker.monthlyWork) ? worker.monthlyWork : [],
+            yearlyWork: Array.isArray(worker.yearlyWork) ? worker.yearlyWork : []
+        }));
+        return true;
+    }
+    return false;
+}
+
 async function loadWorkersFromSupabase() {
+    const localWorkers = JSON.parse(localStorage.getItem('workers')) || [];
+
     try {
         if (typeof window.supabase === 'undefined') {
             throw new Error('Supabase not initialized');
@@ -27,41 +72,36 @@ async function loadWorkersFromSupabase() {
         
         if (error) throw error;
         
-        // Initialize work arrays if not arrays
-        const workersWithArrays = (data || []).map(worker => ({
+        const rows = Array.isArray(data) && data.length > 0 ? data : localWorkers;
+        const workersWithArrays = rows.map(worker => ({
             ...worker,
             dailyWork: Array.isArray(worker.dailyWork) ? worker.dailyWork : [],
             monthlyWork: Array.isArray(worker.monthlyWork) ? worker.monthlyWork : [],
             yearlyWork: Array.isArray(worker.yearlyWork) ? worker.yearlyWork : []
         }));
         
-        // Merge with localStorage avatars (fallback)
         const workersWithAvatars = workersWithArrays.map(worker => {
             const localAvatar = loadAvatarFromLocal(worker.id);
-            // If Supabase avatar URL fails or is empty, use localStorage
             const avatar = localAvatar || worker.avatar;
             return { ...worker, avatar };
         });
 
-        // Remove duplicate workers by ID (keep the first occurrence)
         const uniqueWorkers = [];
         const seenIds = new Set();
         for (const worker of workersWithAvatars) {
             if (!seenIds.has(worker.id)) {
                 seenIds.add(worker.id);
                 uniqueWorkers.push(worker);
-            } else {
-                console.log('Duplicate worker ID removed:', worker.id);
             }
         }
 
         workers = uniqueWorkers;
+        persistWorkersToLocalStorage();
         console.log('Workers loaded from Supabase:', workers.length);
-        console.log('Unique workers after deduplication:', workers.length);
     } catch (error) {
         console.error('Error loading workers:', error);
-        // Fallback to localStorage if Supabase fails
-        workers = JSON.parse(localStorage.getItem('workers')) || [];
+        workers = localWorkers;
+        persistWorkersToLocalStorage();
     }
 }
 
@@ -92,7 +132,6 @@ async function saveWorkerToSupabase(worker) {
         console.log('Worker saved to Supabase:', worker.id);
     } catch (error) {
         console.error('Error saving worker:', error);
-        // Fallback to localStorage
         const localWorkers = JSON.parse(localStorage.getItem('workers')) || [];
         const index = localWorkers.findIndex(w => w.id === worker.id);
         if (index !== -1) {
@@ -102,6 +141,16 @@ async function saveWorkerToSupabase(worker) {
         }
         localStorage.setItem('workers', JSON.stringify(localWorkers));
     }
+
+    const localWorkers = JSON.parse(localStorage.getItem('workers')) || [];
+    const index = localWorkers.findIndex(w => w.id === worker.id);
+    if (index !== -1) {
+        localWorkers[index] = worker;
+    } else {
+        localWorkers.push(worker);
+    }
+    localStorage.setItem('workers', JSON.stringify(localWorkers));
+    persistWorkersToLocalStorage();
 }
 
 // Upload image to localStorage (PERMANENT SOLUTION - Reliable)
@@ -306,8 +355,13 @@ async function deleteNoteFromSupabase(noteId) {
 }
 
 async function loadSettingsFromSupabase() {
+    if (!ENABLE_SUPABASE_SETTINGS_SYNC) {
+        inputStylingSettings = readLocalStorageJson('inputStylingSettings', {});
+        return;
+    }
+
     try {
-        if (typeof window.supabase === 'undefined') {
+        if (typeof window.supabase === 'undefined' || window.supabase === null) {
             throw new Error('Supabase not initialized');
         }
         
@@ -317,23 +371,35 @@ async function loadSettingsFromSupabase() {
             .eq('id', 'inputStyling')
             .single();
         
-        if (error && error.code !== 'PGRST116') throw error;
+        if (error && error.code !== 'PGRST116' && error.code !== 'PGRST205' && error.status !== 406) {
+            throw error;
+        }
         
         if (data && data.data) {
             inputStylingSettings = data.data;
             console.log('Settings loaded from Supabase');
         }
     } catch (error) {
-        console.error('Error loading settings:', error);
-        inputStylingSettings = JSON.parse(localStorage.getItem('inputStylingSettings')) || {};
+        inputStylingSettings = readLocalStorageJson('inputStylingSettings', {});
+        if (error && error.message !== 'Supabase not initialized' && error.status !== 406 && error.code !== 'PGRST205') {
+            console.warn('Settings sync unavailable, using local storage fallback.', error.message);
+        }
     }
 }
 
 async function saveSettingsToSupabase() {
+    if (!ENABLE_SUPABASE_SETTINGS_SYNC) {
+        writeLocalStorageJson('inputStylingSettings', inputStylingSettings);
+        return;
+    }
+
     try {
+        if (typeof window.supabase === 'undefined' || window.supabase === null) {
+            throw new Error('Supabase not initialized');
+        }
+
         console.log('Saving settings to Supabase:', inputStylingSettings);
 
-        // Only save data column with id
         const settingsData = {
             id: 'inputStyling',
             data: inputStylingSettings
@@ -343,16 +409,16 @@ async function saveSettingsToSupabase() {
             .from('settings')
             .upsert(settingsData);
 
-        if (error) {
-            console.error('Supabase upsert error:', error);
+        if (error && error.status !== 406 && error.code !== 'PGRST205') {
             throw error;
         }
 
         console.log('Settings saved to Supabase successfully:', data);
     } catch (error) {
-        console.error('Error saving settings:', error);
-        console.log('Falling back to localStorage');
-        localStorage.setItem('inputStylingSettings', JSON.stringify(inputStylingSettings));
+        if (error && error.message !== 'Supabase not initialized' && error.status !== 406 && error.code !== 'PGRST205') {
+            console.warn('Supabase settings save unavailable, using local storage fallback.', error.message);
+        }
+        writeLocalStorageJson('inputStylingSettings', inputStylingSettings);
     }
 }
 
@@ -361,9 +427,15 @@ async function loadAllData() {
     await Promise.all([
         loadWorkersFromSupabase(),
         loadActivitiesFromSupabase(),
-        loadNotesFromSupabase(),
-        loadSettingsFromSupabase()
+        loadNotesFromSupabase()
     ]);
+
+    if (ENABLE_SUPABASE_SETTINGS_SYNC) {
+        await loadSettingsFromSupabase();
+    } else {
+        inputStylingSettings = readLocalStorageJson('inputStylingSettings', {});
+    }
+
     console.log('All data loaded from Supabase');
 }
 
@@ -417,7 +489,7 @@ function applyTheme(theme) {
 }
 
 function applySavedFont() {
-    const settings = JSON.parse(localStorage.getItem('appSettings')) || {};
+    const settings = readLocalStorageJson('appSettings', {});
     const savedFont = settings.font || localStorage.getItem('selectedFont') || "'Segoe UI', sans-serif";
     
     console.log('Applying saved font:', savedFont);
@@ -526,9 +598,9 @@ if (fontSelector) {
         document.body.style.display = '';
         
         // Update settings
-        const settings = JSON.parse(localStorage.getItem('appSettings')) || {};
+        const settings = readLocalStorageJson('appSettings', {});
         settings.font = selectedFont;
-        localStorage.setItem('appSettings', JSON.stringify(settings));
+        writeLocalStorageJson('appSettings', settings);
         
         // Also save to selectedFont for backward compatibility
         localStorage.setItem('selectedFont', selectedFont);
@@ -561,8 +633,10 @@ if (document.getElementById('addNoteBtn')) {
 // Initialize Supabase and load data
 if (typeof window.supabase !== 'undefined') {
     loadAllData().then(() => {
+        console.log('All data loaded, initializing UI');
         applySavedFont();
         renderNotes();
+        renderWorkerList();
         updateDashboardStats();
     });
 } else {
@@ -589,6 +663,7 @@ if (typeof window.supabase !== 'undefined') {
     inputStylingSettings = JSON.parse(localStorage.getItem('inputStylingSettings')) || {};
     applySavedFont();
     renderNotes();
+    renderWorkerList();
     updateDashboardStats();
 }
 
@@ -825,6 +900,10 @@ function getTaskCounts(tasks = []) {
 }
 
 function updateDashboardStats() {
+    if (!workers.length) {
+        restoreWorkersFromLocalStorage();
+    }
+
     console.log('=== Updating Dashboard Stats ===');
     console.log('Total workers:', workers.length);
 
@@ -1015,6 +1094,10 @@ function saveWorkers() {
 }
 
 function renderWorkerList() {
+    if (!workers.length) {
+        restoreWorkersFromLocalStorage();
+    }
+
     const workerList = document.getElementById('workerList');
     const noWorkers = document.getElementById('noWorkers');
     const searchTerm = document.getElementById('workerSearch').value.toLowerCase();
@@ -1148,6 +1231,7 @@ async function deleteWorker(workerId) {
         const workersBefore = workers.length;
         workers = workers.filter(w => w.id !== workerId);
         const workersAfter = workers.length;
+        persistWorkersToLocalStorage();
         console.log('Workers before:', workersBefore, 'Workers after:', workersAfter);
 
         // Delete avatar from localStorage - specific worker only
@@ -1205,6 +1289,7 @@ document.getElementById('cardColorPicker').addEventListener('input', (e) => {
         if (workerIndex !== -1) {
             workers[workerIndex].cardColor = e.target.value;
             saveWorkerToSupabase(workers[workerIndex]);
+            persistWorkersToLocalStorage();
             renderWorkerList();
         }
     }
@@ -1225,6 +1310,10 @@ document.addEventListener('click', (e) => {
 // ============================================
 
 function showWorkerProfile() {
+    if (!workers.length) {
+        restoreWorkersFromLocalStorage();
+    }
+
     if (!currentWorker) return;
     
     document.getElementById('workerProfileName').textContent = currentWorker.name;
@@ -1298,9 +1387,9 @@ function showWorkerProfile() {
     
     // Calculate completion rate
     const totalTasks = currentWorker.dailyWork.length + currentWorker.monthlyWork.length + currentWorker.yearlyWork.length;
-    const completedTasks = currentWorker.dailyWork.filter(w => w.status === 'done').length +
-                          currentWorker.monthlyWork.filter(w => w.status === 'done').length +
-                          currentWorker.yearlyWork.filter(w => w.status === 'done').length;
+    const completedTasks = currentWorker.dailyWork.filter(w => normalizeTaskStatus(w.status) === 'done').length +
+                          currentWorker.monthlyWork.filter(w => normalizeTaskStatus(w.status) === 'done').length +
+                          currentWorker.yearlyWork.filter(w => normalizeTaskStatus(w.status) === 'done').length;
     const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
     document.getElementById('completionRate').textContent = completionRate + '%';
     
@@ -1640,6 +1729,7 @@ function updateWorkerAndRefresh() {
     const workerIndex = workers.findIndex(w => w.id === currentWorker.id);
     if (workerIndex !== -1) {
         workers[workerIndex] = currentWorker;
+        persistWorkersToLocalStorage();
         saveWorkerToSupabase(currentWorker);
     }
     renderWorkList(currentWorkType);
@@ -1808,9 +1898,9 @@ function updateTopPerformers() {
     // Calculate performance metrics for each worker
     const workerPerformance = workers.map(worker => {
         const totalTasks = worker.dailyWork.length + worker.monthlyWork.length + worker.yearlyWork.length;
-        const completedTasks = worker.dailyWork.filter(w => w.status === 'done').length +
-                              worker.monthlyWork.filter(w => w.status === 'done').length +
-                              worker.yearlyWork.filter(w => w.status === 'done').length;
+        const completedTasks = worker.dailyWork.filter(w => normalizeTaskStatus(w.status) === 'done').length +
+                              worker.monthlyWork.filter(w => normalizeTaskStatus(w.status) === 'done').length +
+                              worker.yearlyWork.filter(w => normalizeTaskStatus(w.status) === 'done').length;
         const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
         
         return {
@@ -2204,8 +2294,8 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     workers.forEach(worker => {
         const allTasks = [...worker.dailyWork, ...worker.monthlyWork, ...worker.yearlyWork];
         totalTasks += allTasks.length;
-        completedTasks += allTasks.filter(t => t.status === 'done').length;
-        pendingTasks += allTasks.filter(t => t.status === 'pending').length;
+        completedTasks += allTasks.filter(t => normalizeTaskStatus(t.status) === 'done').length;
+        pendingTasks += allTasks.filter(t => normalizeTaskStatus(t.status) === 'pending').length;
     });
     
     // Stats Box
@@ -2266,8 +2356,8 @@ document.getElementById('exportBtn').addEventListener('click', () => {
             
             // Stats for this worker
             const workerTasks = [...worker.dailyWork, ...worker.monthlyWork, ...worker.yearlyWork];
-            const workerCompleted = workerTasks.filter(t => t.status === 'done').length;
-            const workerPending = workerTasks.filter(t => t.status === 'pending').length;
+            const workerCompleted = workerTasks.filter(t => normalizeTaskStatus(t.status) === 'done').length;
+            const workerPending = workerTasks.filter(t => normalizeTaskStatus(t.status) === 'pending').length;
             
             doc.text(`Tasks: ${workerTasks.length} | Done: ${workerCompleted} | Pending: ${workerPending}`, margin + 120, yPosition + 22);
             
@@ -2517,12 +2607,12 @@ document.getElementById('settingsModal').addEventListener('click', (e) => {
 
 // Load settings from localStorage
 function loadSettings() {
-    const settings = JSON.parse(localStorage.getItem('appSettings')) || {
+    const settings = readLocalStorageJson('appSettings', {
         font: "'Segoe UI', sans-serif",
         theme: 'default',
         taskReminders: true,
         workerUpdates: true
-    };
+    });
 
     // Load font setting
     document.getElementById('settingsFont').value = settings.font;
