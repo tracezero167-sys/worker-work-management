@@ -1018,10 +1018,14 @@ function showWorkerProfile() {
         existingImg.remove();
     }
     
+    console.log('Worker avatar URL:', currentWorker.avatar);
+    
     if (currentWorker.avatar) {
         const img = document.createElement('img');
         img.src = currentWorker.avatar;
         img.alt = currentWorker.name;
+        img.onload = () => console.log('Avatar image loaded successfully');
+        img.onerror = () => console.error('Avatar image failed to load');
         avatarContainer.appendChild(img);
         icon.style.display = 'none';
     } else {
