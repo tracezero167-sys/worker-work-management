@@ -800,7 +800,7 @@ document.getElementById('cancelAddWorker').addEventListener('click', () => {
 // Prevent duplicate submissions
 let isSubmitting = false;
 
-document.getElementById('addWorkerForm').addEventListener('submit', (e) => {
+document.getElementById('addWorkerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     // Prevent multiple submissions
