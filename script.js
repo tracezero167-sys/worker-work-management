@@ -22,7 +22,7 @@ async function loadWorkersFromSupabase() {
         }
         
         const { data, error } = await window.supabase
-            .from('workers')
+            .from('Workers')
             .select('*');
         
         if (error) throw error;
@@ -38,7 +38,7 @@ async function loadWorkersFromSupabase() {
 async function saveWorkerToSupabase(worker) {
     try {
         const { error } = await window.supabase
-            .from('workers')
+            .from('Workers')
             .upsert(worker);
         
         if (error) throw error;
@@ -60,7 +60,7 @@ async function saveWorkerToSupabase(worker) {
 async function deleteWorkerFromSupabase(workerId) {
     try {
         const { error } = await window.supabase
-            .from('workers')
+            .from('Workers')
             .delete()
             .eq('id', workerId);
         
