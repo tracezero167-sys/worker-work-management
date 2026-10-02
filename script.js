@@ -829,29 +829,29 @@ if (saveWorkerBtn) {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        
+
         console.log('=== Save Worker Button Clicked ===');
-        
+
         // Prevent multiple submissions
         if (isSubmitting || submitCooldown) {
             console.log('Form already submitting or in cooldown, preventing duplicate');
             return;
         }
-        
+
         isSubmitting = true;
         submitCooldown = true;
-        
+
         // Disable button immediately
         saveWorkerBtn.disabled = true;
         saveWorkerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-        
+
         const name = document.getElementById('workerName').value.trim();
         const mobile = document.getElementById('workerMobile').value.trim();
         const whatsapp = document.getElementById('workerWhatsApp').value.trim();
         const department = document.getElementById('workerDepartment').value;
         const details = document.getElementById('workerDetails').value.trim();
         const avatarInput = document.getElementById('workerAvatarInput');
-        
+
         // Validate required fields
         if (!name || !mobile) {
             alert('Name and Mobile are required!');
@@ -861,12 +861,12 @@ if (saveWorkerBtn) {
             saveWorkerBtn.innerHTML = '<i class="fas fa-save"></i> Save Worker';
             return;
         }
-        
+
         console.log('Adding worker:', name);
-        
+
         // Handle avatar upload to localStorage (PERMANENT)
         const workerId = Date.now().toString();
-        
+
         if (avatarInput.files && avatarInput.files[0]) {
             console.log('Avatar file selected:', avatarInput.files[0].name);
             try {
@@ -878,7 +878,7 @@ if (saveWorkerBtn) {
         } else {
             console.log('No avatar file selected');
         }
-        
+
         const newWorker = {
             id: workerId,
             name: name,
@@ -894,28 +894,28 @@ if (saveWorkerBtn) {
             createdAt: new Date().toISOString(),
             status: 'active'
         };
-        
+
         console.log('Creating worker:', newWorker);
-        
+
         workers.push(newWorker);
-        
+
         try {
             await saveWorkerToSupabase(newWorker);
             addActivity('New worker added', `${name} has been added to the system`, 'worker');
-            
+
             document.getElementById('addWorkerForm').reset();
             showScreen('workerList');
-            
+
             console.log('Worker saved successfully');
         } catch (error) {
             console.error('Error saving worker:', error);
             alert('Error saving worker. Please try again.');
         }
-        
+
         // Re-enable button
         saveWorkerBtn.disabled = false;
         saveWorkerBtn.innerHTML = '<i class="fas fa-save"></i> Save Worker';
-        
+
         // Reset submission flags after delay
         setTimeout(() => {
             isSubmitting = false;
@@ -1029,36 +1029,46 @@ async function deleteWorker(workerId) {
         return;
     }
 
+    console.log('=== Delete Worker ===');
+    console.log('Worker ID:', workerId);
+    console.log('Worker Name:', worker.name);
+    console.log('Total workers before delete:', workers.length);
+
     // Confirm deletion
-    if (!confirm(`Are you sure you want to delete ${worker.name}? This action cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to delete ${worker.name}? This will only delete this specific worker.`)) {
+        console.log('Delete cancelled by user');
         return;
     }
 
-    console.log('Deleting worker:', worker.name);
-
     try {
-        // Delete from Supabase
-        const { error: supabaseError } = await window.supabase
+        // Delete from Supabase - specific worker only
+        console.log('Deleting from Supabase with ID:', workerId);
+        const { error: supabaseError, count } = await window.supabase
             .from('Workers')
             .delete()
-            .eq('id', workerId);
+            .eq('id', workerId)
+            .select();
 
         if (supabaseError) {
             console.error('Error deleting worker from Supabase:', supabaseError);
             throw supabaseError;
         }
 
-        console.log('Worker deleted from Supabase');
+        console.log('Worker deleted from Supabase. Rows affected:', count);
 
-        // Delete from local workers array
+        // Delete from local workers array - specific worker only
+        const workersBefore = workers.length;
         workers = workers.filter(w => w.id !== workerId);
+        const workersAfter = workers.length;
+        console.log('Workers before:', workersBefore, 'Workers after:', workersAfter);
 
-        // Delete avatar from localStorage
+        // Delete avatar from localStorage - specific worker only
         const avatars = JSON.parse(localStorage.getItem('workerAvatars') || '{}');
-        delete avatars[workerId];
-        localStorage.setItem('workerAvatars', JSON.stringify(avatars));
-
-        console.log('Avatar deleted from localStorage');
+        if (avatars[workerId]) {
+            delete avatars[workerId];
+            localStorage.setItem('workerAvatars', JSON.stringify(avatars));
+            console.log('Avatar deleted from localStorage for worker:', workerId);
+        }
 
         // Add activity log
         addActivity('Worker deleted', `${worker.name} has been deleted from the system`, 'worker');
@@ -1067,6 +1077,7 @@ async function deleteWorker(workerId) {
         renderWorkerList();
 
         console.log('Worker deleted successfully');
+        alert(`${worker.name} has been deleted.`);
     } catch (error) {
         console.error('Error deleting worker:', error);
         alert('Error deleting worker. Please try again.');
@@ -1224,23 +1235,34 @@ document.getElementById('avatarUploadBtn').addEventListener('click', () => {
 });
 
 document.getElementById('avatarUpload').addEventListener('change', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     if (e.target.files && e.target.files[0]) {
+        console.log('=== Avatar Upload Change ===');
+        console.log('Current worker:', currentWorker?.name);
+
+        if (!currentWorker) {
+            alert('Please select a worker first');
+            return;
+        }
+
         // Upload to localStorage (PERMANENT SOLUTION)
         await uploadAvatarToLocal(e.target.files[0], currentWorker.id);
-        
+
         // Update UI
         const avatarContainer = document.getElementById('workerProfileAvatar');
         const icon = avatarContainer.querySelector('.fas.fa-user');
-        
+
         // Remove existing image if any
         const existingImg = avatarContainer.querySelector('img');
         if (existingImg) {
             existingImg.remove();
         }
-        
+
         // Load from localStorage
         const localAvatar = loadAvatarFromLocal(currentWorker.id);
-        
+
         if (localAvatar) {
             const img = document.createElement('img');
             img.src = localAvatar;
@@ -1248,7 +1270,7 @@ document.getElementById('avatarUpload').addEventListener('change', async (e) => 
             img.style.cssText = 'width: 100%; height: 100%; object-fit: cover; border-radius: 50%;';
             avatarContainer.appendChild(img);
             icon.style.display = 'none';
-            
+
             addActivity('Profile photo updated', `${currentWorker.name}'s profile photo has been updated`, 'worker');
         }
     }
@@ -1323,24 +1345,42 @@ document.getElementById('yearlyWorkBtn').addEventListener('click', () => {
     showScreen('yearlyWork');
 });
 
-document.getElementById('addDailyWork').addEventListener('click', () => {
+document.getElementById('addDailyWork').addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     currentWorkType = 'daily';
     openAddWorkModal('Daily Work');
 });
 
-document.getElementById('addMonthlyWork').addEventListener('click', () => {
+document.getElementById('addMonthlyWork').addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     currentWorkType = 'monthly';
     openAddWorkModal('Monthly Work');
 });
 
-document.getElementById('addYearlyWork').addEventListener('click', () => {
+document.getElementById('addYearlyWork').addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     currentWorkType = 'yearly';
     openAddWorkModal('Yearly Work');
 });
 
 // Add first task buttons
 document.querySelectorAll('.add-first-task').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        console.log('=== Add First Task Clicked ===');
+        console.log('Current worker:', currentWorker?.name);
+
+        if (!currentWorker) {
+            alert('Please select a worker first');
+            return;
+        }
+
         const type = btn.dataset.type;
         currentWorkType = type;
         openAddWorkModal(`${type.charAt(0).toUpperCase() + type.slice(1)} Work`);
@@ -1535,11 +1575,19 @@ document.getElementById('cancelAddWork').addEventListener('click', () => {
 
 document.getElementById('addWorkForm').addEventListener('submit', (e) => {
     e.preventDefault();
-    
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    console.log('=== Add Work Form Submitted ===');
+
     const description = document.getElementById('workDescription').value.trim();
     const priority = document.getElementById('workPriority').value;
     const dueDate = document.getElementById('workDueDate').value;
-    
+
+    console.log('Current worker:', currentWorker?.name);
+    console.log('Work type:', currentWorkType);
+    console.log('Description:', description);
+
     if (description && currentWorker && currentWorkType) {
         const newWork = {
             id: Date.now().toString(),
@@ -1549,15 +1597,23 @@ document.getElementById('addWorkForm').addEventListener('submit', (e) => {
             dueDate: dueDate,
             createdAt: new Date().toISOString()
         };
-        
+
         const workKey = `${currentWorkType}Work`;
         currentWorker[workKey].push(newWork);
-        
+
+        console.log('New work added:', newWork);
+        console.log('Updating worker:', currentWorker.name);
+
         updateWorkerAndRefresh();
         addActivity('New task added', `"${description.substring(0, 30)}..." assigned to ${currentWorker.name}`, 'task');
-        
+
         modal.classList.remove('active');
         document.getElementById('addWorkForm').reset();
+
+        console.log('Work added successfully');
+    } else {
+        console.error('Cannot add work - missing data');
+        alert('Please select a worker and enter a work description');
     }
 });
 

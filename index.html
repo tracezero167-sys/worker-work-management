@@ -8,11 +8,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Worker Work Management System | Professional Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=27">
+    <link rel="stylesheet" href="styles.css?v=29">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script src="supabase-config.js?v=27"></script>
+    <script src="supabase-config.js?v=29"></script>
 </head>
 <body>
     <div class="app-container">
@@ -749,7 +749,7 @@
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    <form id="addWorkForm">
+                    <form id="addWorkForm" onsubmit="return false">
                         <div class="form-group">
                             <label for="workDescription">
                                 <i class="fas fa-clipboard-list"></i>
@@ -1017,6 +1017,6 @@
         </main>
     </div>
 
-    <script src="script.js?v=27"></script>
+    <script src="script.js?v=29"></script>
 </body>
 </html>
