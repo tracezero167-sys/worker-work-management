@@ -869,8 +869,12 @@ if (saveWorkerBtn) {
         
         if (avatarInput.files && avatarInput.files[0]) {
             console.log('Avatar file selected:', avatarInput.files[0].name);
-            await uploadAvatarToLocal(avatarInput.files[0], workerId);
-            console.log('Avatar saved to localStorage');
+            try {
+                await uploadAvatarToLocal(avatarInput.files[0], workerId);
+                console.log('Avatar saved to localStorage');
+            } catch (error) {
+                console.error('Error uploading avatar:', error);
+            }
         } else {
             console.log('No avatar file selected');
         }
@@ -895,16 +899,18 @@ if (saveWorkerBtn) {
         
         workers.push(newWorker);
         
-        // Save avatar to localStorage if it's base64 (fallback)
-        if (avatarUrl && avatarUrl.startsWith('data:')) {
-            saveAvatarToLocal(workerId, avatarUrl);
+        try {
+            await saveWorkerToSupabase(newWorker);
+            addActivity('New worker added', `${name} has been added to the system`, 'worker');
+            
+            document.getElementById('addWorkerForm').reset();
+            showScreen('workerList');
+            
+            console.log('Worker saved successfully');
+        } catch (error) {
+            console.error('Error saving worker:', error);
+            alert('Error saving worker. Please try again.');
         }
-        
-        await saveWorkerToSupabase(newWorker);
-        addActivity('New worker added', `${name} has been added to the system`, 'worker');
-        
-        document.getElementById('addWorkerForm').reset();
-        showScreen('workerList');
         
         // Re-enable button
         saveWorkerBtn.disabled = false;
