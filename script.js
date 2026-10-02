@@ -1101,10 +1101,8 @@ function showWorkerProfile() {
     
     // Check localStorage for fallback avatar
     const localAvatar = loadAvatarFromLocal(currentWorker.id);
-    const finalAvatar = localAvatar || currentWorker.avatar;
     
-    console.log('Final avatar (with fallback):', finalAvatar ? 'has avatar' : 'no avatar');
-    console.log('Avatar type:', finalAvatar?.startsWith('data:') ? 'base64' : 'URL');
+    console.log('Local avatar:', localAvatar ? 'has local avatar' : 'no local avatar');
     
     // Remove existing image if any
     const existingImg = avatarContainer.querySelector('img');
@@ -1112,9 +1110,12 @@ function showWorkerProfile() {
         existingImg.remove();
     }
     
-    if (finalAvatar && finalAvatar.length > 0) {
+    // Try localStorage first (more reliable), then Supabase URL
+    const avatarToUse = localAvatar || currentWorker.avatar;
+    
+    if (avatarToUse && avatarToUse.length > 0) {
         const img = document.createElement('img');
-        img.src = finalAvatar;
+        img.src = avatarToUse;
         img.alt = currentWorker.name;
         img.style.cssText = 'width: 100%; height: 100%; object-fit: cover; border-radius: 50%;';
         img.onload = () => {
@@ -1122,10 +1123,10 @@ function showWorkerProfile() {
             icon.style.display = 'none';
         };
         img.onerror = () => {
-            console.error('Avatar image failed to load:', finalAvatar);
-            console.log('Falling back to default icon');
-            icon.style.display = 'block';
+            console.error('Avatar image failed to load:', avatarToUse);
+            console.log('Removing failed image and showing default icon');
             img.remove();
+            icon.style.display = 'block';
         };
         avatarContainer.appendChild(img);
     } else {
