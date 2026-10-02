@@ -93,11 +93,18 @@ async function uploadAvatarToSupabase(file, workerId) {
         const fileName = `${workerId}_${Date.now()}.${file.name.split('.').pop()}`;
         const filePath = `avatars/${fileName}`;
 
+        console.log('Uploading avatar to:', filePath);
+
         const { data, error } = await window.supabase.storage
             .from('worker-avatars')
             .upload(filePath, file);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Upload error:', error);
+            throw error;
+        }
+
+        console.log('Upload successful:', data);
 
         // Get public URL
         const { data: { publicUrl } } = window.supabase.storage
@@ -830,7 +837,11 @@ document.getElementById('addWorkerForm').addEventListener('submit', async (e) =>
     const workerId = Date.now().toString();
     
     if (avatarInput.files && avatarInput.files[0]) {
+        console.log('Avatar file selected:', avatarInput.files[0].name);
         avatarUrl = await uploadAvatarToSupabase(avatarInput.files[0], workerId);
+        console.log('Avatar upload result:', avatarUrl);
+    } else {
+        console.log('No avatar file selected');
     }
     
     const newWorker = {
@@ -848,6 +859,8 @@ document.getElementById('addWorkerForm').addEventListener('submit', async (e) =>
         createdAt: new Date().toISOString(),
         status: 'active'
     };
+    
+    console.log('Creating worker:', newWorker);
     
     workers.push(newWorker);
     await saveWorkerToSupabase(newWorker);
