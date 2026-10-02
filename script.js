@@ -26,7 +26,18 @@ async function loadWorkersFromSupabase() {
             .select('*');
         
         if (error) throw error;
-        workers = data || [];
+        
+        // Merge with localStorage to get avatars (avatars stored locally only)
+        const localWorkers = JSON.parse(localStorage.getItem('workers')) || [];
+        const workersWithAvatars = (data || []).map(worker => {
+            const localWorker = localWorkers.find(w => w.id === worker.id);
+            return {
+                ...worker,
+                avatar: localWorker?.avatar || null
+            };
+        });
+        
+        workers = workersWithAvatars;
         console.log('Workers loaded from Supabase:', workers.length);
     } catch (error) {
         console.error('Error loading workers:', error);
@@ -38,13 +49,13 @@ async function loadWorkersFromSupabase() {
 async function saveWorkerToSupabase(worker) {
     try {
         // Only include columns that exist in the Workers table
+        // Exclude avatar to avoid size limit errors (avatar stored in localStorage only)
         const workerData = {
             id: worker.id,
             name: worker.name,
             mobile: worker.mobile,
             department: worker.department,
             details: worker.details,
-            avatar: worker.avatar,
             cardColor: worker.cardColor,
             dailyWork: worker.dailyWork,
             monthlyWork: worker.monthlyWork,
