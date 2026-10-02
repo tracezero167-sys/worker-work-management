@@ -637,7 +637,12 @@ function showScreen(screenName) {
     };
     
     document.getElementById('pageTitle').textContent = titles[screenName] || 'Dashboard';
-    
+
+    // Update dashboard stats when showing home screen
+    if (screenName === 'home') {
+        updateDashboardStats();
+    }
+
     // Update sidebar navigation
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
@@ -934,6 +939,7 @@ if (saveWorkerBtn) {
 
             document.getElementById('addWorkerForm').reset();
             showScreen('workerList');
+            updateDashboardStats();
 
             console.log('Worker saved successfully');
         } catch (error) {
@@ -1033,11 +1039,15 @@ function renderWorkerList() {
             }
         });
     });
+
+    // Update dashboard stats after rendering worker list
+    updateDashboardStats();
 }
 
 // Worker Search
 document.getElementById('workerSearch').addEventListener('input', () => {
     renderWorkerList();
+    updateDashboardStats();
 });
 
 // Filter Buttons
@@ -1104,6 +1114,7 @@ async function deleteWorker(workerId) {
 
         // Re-render worker list
         renderWorkerList();
+        updateDashboardStats();
 
         console.log('Worker deleted successfully');
         alert(`${worker.name} has been deleted.`);
@@ -1250,11 +1261,13 @@ function showWorkerProfile() {
     document.getElementById('yearlyWorkCount').textContent = `${currentWorker.yearlyWork.length} tasks`;
     
     showScreen('workerProfile');
+    updateDashboardStats();
 }
 
 document.getElementById('backToWorkerList').addEventListener('click', () => {
     currentWorker = null;
     renderWorkerList();
+    updateDashboardStats();
     showScreen('workerList');
 });
 
