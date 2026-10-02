@@ -35,7 +35,15 @@ async function loadWorkersFromSupabase() {
             yearlyWork: Array.isArray(worker.yearlyWork) ? worker.yearlyWork : []
         }));
         
-        workers = workersWithArrays;
+        // Merge with localStorage avatars (fallback)
+        const workersWithAvatars = workersWithArrays.map(worker => {
+            const localAvatar = loadAvatarFromLocal(worker.id);
+            // If Supabase avatar URL fails or is empty, use localStorage
+            const avatar = localAvatar || worker.avatar;
+            return { ...worker, avatar };
+        });
+        
+        workers = workersWithAvatars;
         console.log('Workers loaded from Supabase:', workers.length);
     } catch (error) {
         console.error('Error loading workers:', error);
@@ -87,36 +95,80 @@ async function saveWorkerToSupabase(worker) {
 async function uploadAvatarToSupabase(file, workerId) {
     try {
         if (typeof window.supabase === 'undefined') {
-            throw new Error('Supabase not initialized');
+            console.warn('Supabase not initialized, using localStorage fallback');
+            return await uploadAvatarToLocal(file);
         }
 
         const fileName = `${workerId}_${Date.now()}.${file.name.split('.').pop()}`;
         const filePath = `avatars/${fileName}`;
 
-        console.log('Uploading avatar to:', filePath);
+        console.log('=== Avatar Upload Debug ===');
+        console.log('File name:', file.name);
+        console.log('File size:', file.size);
+        console.log('File type:', file.type);
+        console.log('File path:', filePath);
+        console.log('Bucket: worker-avatars');
 
         const { data, error } = await window.supabase.storage
             .from('worker-avatars')
             .upload(filePath, file);
 
         if (error) {
-            console.error('Upload error:', error);
-            throw error;
+            console.error('=== Upload FAILED ===');
+            console.error('Error:', error);
+            console.error('Falling back to localStorage');
+            return await uploadAvatarToLocal(file);
         }
 
-        console.log('Upload successful:', data);
+        console.log('=== Upload SUCCESS ===');
+        console.log('Upload data:', data);
 
         // Get public URL
         const { data: { publicUrl } } = window.supabase.storage
             .from('worker-avatars')
             .getPublicUrl(filePath);
 
-        console.log('Avatar uploaded to Supabase:', publicUrl);
+        console.log('=== Public URL Generated ===');
+        console.log('Public URL:', publicUrl);
+        console.log('=====================');
+
         return publicUrl;
     } catch (error) {
-        console.error('Error uploading avatar:', error);
-        return null;
+        console.error('=== Avatar Upload Error ===');
+        console.error('Error:', error);
+        console.error('Falling back to localStorage');
+        return await uploadAvatarToLocal(file);
     }
+}
+
+// Fallback: Upload to localStorage as base64
+async function uploadAvatarToLocal(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            console.log('Avatar saved to localStorage (fallback)');
+            resolve(e.target.result);
+        };
+        reader.onerror = () => {
+            console.error('Failed to read file for localStorage');
+            resolve(null);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// Save avatar to localStorage
+function saveAvatarToLocal(workerId, avatarData) {
+    const avatars = JSON.parse(localStorage.getItem('workerAvatars') || '{}');
+    avatars[workerId] = avatarData;
+    localStorage.setItem('workerAvatars', JSON.stringify(avatars));
+    console.log('Avatar saved to localStorage for worker:', workerId);
+}
+
+// Load avatar from localStorage
+function loadAvatarFromLocal(workerId) {
+    const avatars = JSON.parse(localStorage.getItem('workerAvatars') || '{}');
+    return avatars[workerId] || null;
 }
 
 async function deleteWorkerFromSupabase(workerId) {
@@ -808,16 +860,20 @@ document.getElementById('cancelAddWorker').addEventListener('click', () => {
 let isSubmitting = false;
 let submitCooldown = false;
 
-document.getElementById('addWorkerForm').addEventListener('submit', async (e) => {
+// Remove default form submit completely
+document.getElementById('addWorkerForm').removeEventListener('submit', () => {});
+
+// Handle form submission manually via button
+document.getElementById('addWorkerForm').querySelector('button[type="submit"]').addEventListener('click', async (e) => {
     e.preventDefault();
     e.stopPropagation();
     
-    console.log('Form submit triggered');
+    console.log('=== Save Worker Button Clicked ===');
     
     // Prevent multiple submissions with cooldown
     if (isSubmitting || submitCooldown) {
         console.log('Form already submitting or in cooldown, preventing duplicate');
-        return false;
+        return;
     }
     
     isSubmitting = true;
@@ -835,7 +891,7 @@ document.getElementById('addWorkerForm').addEventListener('submit', async (e) =>
         alert('Name and Mobile are required!');
         isSubmitting = false;
         submitCooldown = false;
-        return false;
+        return;
     }
     
     console.log('Adding worker:', name);
@@ -871,6 +927,12 @@ document.getElementById('addWorkerForm').addEventListener('submit', async (e) =>
     console.log('Creating worker:', newWorker);
     
     workers.push(newWorker);
+    
+    // Save avatar to localStorage if it's base64 (fallback)
+    if (avatarUrl && avatarUrl.startsWith('data:')) {
+        saveAvatarToLocal(workerId, avatarUrl);
+    }
+    
     await saveWorkerToSupabase(newWorker);
     addActivity('New worker added', `${name} has been added to the system`, 'worker');
     
@@ -883,8 +945,6 @@ document.getElementById('addWorkerForm').addEventListener('submit', async (e) =>
         submitCooldown = false;
         console.log('Submission cooldown reset');
     }, 3000);
-    
-    return false;
 });
 
 function saveWorkers() {
@@ -1039,15 +1099,22 @@ function showWorkerProfile() {
     console.log('Setting avatar for worker:', currentWorker.name);
     console.log('Avatar URL:', currentWorker.avatar);
     
+    // Check localStorage for fallback avatar
+    const localAvatar = loadAvatarFromLocal(currentWorker.id);
+    const finalAvatar = localAvatar || currentWorker.avatar;
+    
+    console.log('Final avatar (with fallback):', finalAvatar ? 'has avatar' : 'no avatar');
+    console.log('Avatar type:', finalAvatar?.startsWith('data:') ? 'base64' : 'URL');
+    
     // Remove existing image if any
     const existingImg = avatarContainer.querySelector('img');
     if (existingImg) {
         existingImg.remove();
     }
     
-    if (currentWorker.avatar && currentWorker.avatar.length > 0) {
+    if (finalAvatar && finalAvatar.length > 0) {
         const img = document.createElement('img');
-        img.src = currentWorker.avatar;
+        img.src = finalAvatar;
         img.alt = currentWorker.name;
         img.style.cssText = 'width: 100%; height: 100%; object-fit: cover; border-radius: 50%;';
         img.onload = () => {
@@ -1055,8 +1122,10 @@ function showWorkerProfile() {
             icon.style.display = 'none';
         };
         img.onerror = () => {
-            console.error('Avatar image failed to load:', currentWorker.avatar);
+            console.error('Avatar image failed to load:', finalAvatar);
+            console.log('Falling back to default icon');
             icon.style.display = 'block';
+            img.remove();
         };
         avatarContainer.appendChild(img);
     } else {
