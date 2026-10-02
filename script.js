@@ -795,6 +795,35 @@ document.querySelectorAll('.stat-card').forEach(card => {
     });
 });
 
+function normalizeTaskStatus(status) {
+    const normalized = String(status || '').trim().toLowerCase().replace(/[_\s]+/g, '-');
+
+    if (['done', 'completed', 'finished', 'success'].includes(normalized)) {
+        return 'done';
+    }
+
+    const pendingStatuses = ['active', 'pending', 'in-progress', 'started', 'assigned', 'open', 'new'];
+    if (pendingStatuses.includes(normalized)) {
+        return 'pending';
+    }
+
+    return 'pending';
+}
+
+function getTaskCounts(tasks = []) {
+    return tasks.reduce((counts, task) => {
+        const status = normalizeTaskStatus(task?.status);
+
+        if (status === 'done') {
+            counts.done += 1;
+        } else {
+            counts.pending += 1;
+        }
+
+        return counts;
+    }, { done: 0, pending: 0 });
+}
+
 function updateDashboardStats() {
     console.log('=== Updating Dashboard Stats ===');
     console.log('Total workers:', workers.length);
@@ -807,19 +836,16 @@ function updateDashboardStats() {
     workers.forEach(worker => {
         console.log(`Worker: ${worker.name}`);
         ['dailyWork', 'monthlyWork', 'yearlyWork'].forEach(workType => {
-            if (Array.isArray(worker[workType])) {
-                console.log(`  ${workType}: ${worker[workType].length} tasks`);
-                worker[workType].forEach(work => {
-                    if (work.status === 'pending') {
-                        activeTasks++;
-                        pendingTasks++;
-                    } else if (work.status === 'done') {
-                        completedTasks++;
-                    }
-                });
-            } else {
-                console.log(`  ${workType}: not an array`);
+            const tasks = Array.isArray(worker[workType]) ? worker[workType] : [];
+            const counts = getTaskCounts(tasks);
+
+            if (tasks.length > 0) {
+                console.log(`  ${workType}: ${tasks.length} tasks`);
             }
+
+            activeTasks += counts.pending;
+            pendingTasks += counts.pending;
+            completedTasks += counts.done;
         });
     });
 
@@ -1467,20 +1493,20 @@ function renderWorkList(workType) {
     
     const workList = document.getElementById(`${workType}WorkList`);
     const noWork = document.getElementById(`no${workType.charAt(0).toUpperCase() + workType.slice(1)}Work`);
-    const workArray = currentWorker[`${workType}Work`];
+    const workArray = Array.isArray(currentWorker[`${workType}Work`]) ? currentWorker[`${workType}Work`] : [];
     
     // Update summary
-    const completed = workArray.filter(w => w.status === 'done').length;
-    const pending = workArray.filter(w => w.status === 'pending').length;
+    const completed = workArray.filter(w => normalizeTaskStatus(w.status) === 'done').length;
+    const pending = workArray.filter(w => normalizeTaskStatus(w.status) === 'pending').length;
     document.getElementById(`${workType}Completed`).textContent = completed;
     document.getElementById(`${workType}Pending`).textContent = pending;
     
     // Filter work based on current filter
     let filteredWork = workArray;
     if (currentFilter === 'pending') {
-        filteredWork = workArray.filter(w => w.status === 'pending');
+        filteredWork = workArray.filter(w => normalizeTaskStatus(w.status) === 'pending');
     } else if (currentFilter === 'completed') {
-        filteredWork = workArray.filter(w => w.status === 'done');
+        filteredWork = workArray.filter(w => normalizeTaskStatus(w.status) === 'done');
     }
     
     if (filteredWork.length === 0) {
@@ -1490,20 +1516,23 @@ function renderWorkList(workType) {
     }
     
     noWork.style.display = 'none';
-    workList.innerHTML = filteredWork.map(work => `
-        <div class="work-item ${work.status}" data-work-id="${work.id}">
+    workList.innerHTML = filteredWork.map(work => {
+        const isDone = normalizeTaskStatus(work.status) === 'done';
+
+        return `
+        <div class="work-item ${isDone ? 'done' : 'pending'}" data-work-id="${work.id}">
             <div class="work-item-header">
                 <div class="work-item-description">${escapeHtml(work.description)}</div>
                 <div class="work-item-status">
-                    <span class="status-badge ${work.status}">
-                        ${work.status === 'done' ? '<i class="fas fa-check-circle"></i> Done' : 'Pending'}
+                    <span class="status-badge ${isDone ? 'done' : 'pending'}">
+                        ${isDone ? '<i class="fas fa-check-circle"></i> Done' : 'Pending'}
                     </span>
                 </div>
             </div>
             ${work.priority ? `<div class="work-priority priority-${work.priority}">${work.priority.charAt(0).toUpperCase() + work.priority.slice(1)} Priority</div>` : ''}
             ${work.dueDate ? `<div class="work-due-date"><i class="fas fa-calendar"></i> Due: ${formatDate(work.dueDate)}</div>` : ''}
             <div class="work-item-actions">
-                ${work.status === 'pending' ? `
+                ${!isDone ? `
                     <button class="btn-mark-done" onclick="markAsDone('${work.id}')">
                         <i class="fas fa-check"></i> Mark as Done
                     </button>
@@ -1520,7 +1549,8 @@ function renderWorkList(workType) {
                 </button>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function markAsDone(workId) {
@@ -1631,12 +1661,18 @@ function openAddWorkModal(title) {
 
 document.getElementById('closeModal').addEventListener('click', () => {
     modal.classList.remove('active');
-    document.getElementById('addWorkForm').reset();
+    // Manually clear form fields
+    document.getElementById('workDescription').value = '';
+    document.getElementById('workPriority').value = 'normal';
+    document.getElementById('workDueDate').value = '';
 });
 
 document.getElementById('cancelAddWork').addEventListener('click', () => {
     modal.classList.remove('active');
-    document.getElementById('addWorkForm').reset();
+    // Manually clear form fields
+    document.getElementById('workDescription').value = '';
+    document.getElementById('workPriority').value = 'normal';
+    document.getElementById('workDueDate').value = '';
 });
 
 // Handle submit work button click (instead of form submit)
@@ -1689,7 +1725,11 @@ document.getElementById('submitWorkBtn').addEventListener('click', (e) => {
     addActivity('New task added', `"${description.substring(0, 30)}..." assigned to ${currentWorker.name}`, 'task');
 
     modal.classList.remove('active');
-    document.getElementById('addWorkForm').reset();
+
+    // Manually clear form fields (since it's a div now, not a form)
+    document.getElementById('workDescription').value = '';
+    document.getElementById('workPriority').value = 'normal';
+    document.getElementById('workDueDate').value = '';
 
     console.log('Work added successfully');
 });
@@ -1698,7 +1738,10 @@ document.getElementById('submitWorkBtn').addEventListener('click', (e) => {
 modal.addEventListener('click', (e) => {
     if (e.target === modal || e.target.classList.contains('modal-backdrop')) {
         modal.classList.remove('active');
-        document.getElementById('addWorkForm').reset();
+        // Manually clear form fields
+        document.getElementById('workDescription').value = '';
+        document.getElementById('workPriority').value = 'normal';
+        document.getElementById('workDueDate').value = '';
     }
 });
 
