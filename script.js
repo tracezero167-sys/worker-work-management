@@ -91,63 +91,15 @@ async function saveWorkerToSupabase(worker) {
     }
 }
 
-// Upload image to Supabase Storage
-async function uploadAvatarToSupabase(file, workerId) {
-    try {
-        if (typeof window.supabase === 'undefined') {
-            console.warn('Supabase not initialized, using localStorage fallback');
-            return await uploadAvatarToLocal(file);
-        }
-
-        const fileName = `${workerId}_${Date.now()}.${file.name.split('.').pop()}`;
-        const filePath = `avatars/${fileName}`;
-
-        console.log('=== Avatar Upload Debug ===');
-        console.log('File name:', file.name);
-        console.log('File size:', file.size);
-        console.log('File type:', file.type);
-        console.log('File path:', filePath);
-        console.log('Bucket: worker-avatars');
-
-        const { data, error } = await window.supabase.storage
-            .from('worker-avatars')
-            .upload(filePath, file);
-
-        if (error) {
-            console.error('=== Upload FAILED ===');
-            console.error('Error:', error);
-            console.error('Falling back to localStorage');
-            return await uploadAvatarToLocal(file);
-        }
-
-        console.log('=== Upload SUCCESS ===');
-        console.log('Upload data:', data);
-
-        // Get public URL
-        const { data: { publicUrl } } = window.supabase.storage
-            .from('worker-avatars')
-            .getPublicUrl(filePath);
-
-        console.log('=== Public URL Generated ===');
-        console.log('Public URL:', publicUrl);
-        console.log('=====================');
-
-        return publicUrl;
-    } catch (error) {
-        console.error('=== Avatar Upload Error ===');
-        console.error('Error:', error);
-        console.error('Falling back to localStorage');
-        return await uploadAvatarToLocal(file);
-    }
-}
-
-// Fallback: Upload to localStorage as base64
-async function uploadAvatarToLocal(file) {
+// Upload image to localStorage (PERMANENT SOLUTION - Reliable)
+async function uploadAvatarToLocal(file, workerId) {
     return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => {
-            console.log('Avatar saved to localStorage (fallback)');
-            resolve(e.target.result);
+            console.log('Avatar saved to localStorage (permanent solution)');
+            const avatarData = e.target.result;
+            saveAvatarToLocal(workerId, avatarData);
+            resolve(avatarData);
         };
         reader.onerror = () => {
             console.error('Failed to read file for localStorage');
@@ -909,14 +861,13 @@ if (saveWorkerBtn) {
         
         console.log('Adding worker:', name);
         
-        // Handle avatar upload to Supabase Storage
-        let avatarUrl = null;
+        // Handle avatar upload to localStorage (PERMANENT)
         const workerId = Date.now().toString();
         
         if (avatarInput.files && avatarInput.files[0]) {
             console.log('Avatar file selected:', avatarInput.files[0].name);
-            avatarUrl = await uploadAvatarToSupabase(avatarInput.files[0], workerId);
-            console.log('Avatar upload result:', avatarUrl);
+            await uploadAvatarToLocal(avatarInput.files[0], workerId);
+            console.log('Avatar saved to localStorage');
         } else {
             console.log('No avatar file selected');
         }
@@ -928,7 +879,7 @@ if (saveWorkerBtn) {
             // Note: whatsapp field not in Workers table yet, will add it later
             department: department,
             details: details,
-            avatar: avatarUrl,
+            avatar: null, // Avatar stored in localStorage only (device-specific)
             cardColor: '#667eea',
             dailyWork: [],
             monthlyWork: [],
@@ -995,6 +946,7 @@ function renderWorkerList() {
     workerList.innerHTML = filteredWorkers.map(worker => {
         const cardColor = worker.cardColor || 'var(--white)';
         const textColor = getContrastColor(cardColor);
+        const localAvatar = loadAvatarFromLocal(worker.id);
         
         return `
         <div class="worker-card" data-worker-id="${worker.id}" style="background-color: ${cardColor}; color: ${textColor};">
@@ -1002,8 +954,8 @@ function renderWorkerList() {
                 <i class="fas fa-palette"></i>
             </button>
             <div class="worker-card-avatar">
-                ${worker.avatar 
-                    ? `<img src="${worker.avatar}" alt="${escapeHtml(worker.name)}">` 
+                ${localAvatar 
+                    ? `<img src="${localAvatar}" alt="${escapeHtml(worker.name)}">` 
                     : `<i class="fas fa-user"></i>`
                 }
             </div>
@@ -1110,14 +1062,13 @@ function showWorkerProfile() {
     document.getElementById('workerProfileDepartment').textContent = currentWorker.department || 'Not assigned';
     document.getElementById('workerProfileDetails').textContent = currentWorker.details || 'No additional details';
     
-    // Update avatar
+    // Update avatar - use localStorage (PERMANENT SOLUTION)
     const avatarContainer = document.getElementById('workerProfileAvatar');
     const icon = avatarContainer.querySelector('.fas.fa-user');
     
     console.log('Setting avatar for worker:', currentWorker.name);
-    console.log('Avatar URL:', currentWorker.avatar);
     
-    // Check localStorage for fallback avatar
+    // Load from localStorage
     const localAvatar = loadAvatarFromLocal(currentWorker.id);
     
     console.log('Local avatar:', localAvatar ? 'has local avatar' : 'no local avatar');
@@ -1128,27 +1079,23 @@ function showWorkerProfile() {
         existingImg.remove();
     }
     
-    // Try localStorage first (more reliable), then Supabase URL
-    const avatarToUse = localAvatar || currentWorker.avatar;
-    
-    if (avatarToUse && avatarToUse.length > 0) {
+    if (localAvatar && localAvatar.length > 0) {
         const img = document.createElement('img');
-        img.src = avatarToUse;
+        img.src = localAvatar;
         img.alt = currentWorker.name;
         img.style.cssText = 'width: 100%; height: 100%; object-fit: cover; border-radius: 50%;';
         img.onload = () => {
-            console.log('Avatar image loaded successfully');
+            console.log('Avatar image loaded successfully from localStorage');
             icon.style.display = 'none';
         };
         img.onerror = () => {
-            console.error('Avatar image failed to load:', avatarToUse);
-            console.log('Removing failed image and showing default icon');
+            console.error('Avatar image failed to load from localStorage');
             img.remove();
             icon.style.display = 'block';
         };
         avatarContainer.appendChild(img);
     } else {
-        console.log('No avatar URL provided');
+        console.log('No avatar in localStorage');
         icon.style.display = 'block';
     }
     
@@ -1206,33 +1153,27 @@ document.getElementById('avatarUploadBtn').addEventListener('click', () => {
 
 document.getElementById('avatarUpload').addEventListener('change', async (e) => {
     if (e.target.files && e.target.files[0]) {
-        // Upload to Supabase Storage
-        const avatarUrl = await uploadAvatarToSupabase(e.target.files[0], currentWorker.id);
+        // Upload to localStorage (PERMANENT SOLUTION)
+        await uploadAvatarToLocal(e.target.files[0], currentWorker.id);
         
-        if (avatarUrl) {
-            // Update current worker's avatar
-            currentWorker.avatar = avatarUrl;
-            
-            // Update in workers array
-            const workerIndex = workers.findIndex(w => w.id === currentWorker.id);
-            if (workerIndex !== -1) {
-                workers[workerIndex] = currentWorker;
-                saveWorkerToSupabase(currentWorker);
-            }
-            
-            // Update UI
-            const avatarContainer = document.getElementById('workerProfileAvatar');
-            const icon = avatarContainer.querySelector('.fas.fa-user');
-            
-            // Remove existing image if any
-            const existingImg = avatarContainer.querySelector('img');
-            if (existingImg) {
-                existingImg.remove();
-            }
-            
+        // Update UI
+        const avatarContainer = document.getElementById('workerProfileAvatar');
+        const icon = avatarContainer.querySelector('.fas.fa-user');
+        
+        // Remove existing image if any
+        const existingImg = avatarContainer.querySelector('img');
+        if (existingImg) {
+            existingImg.remove();
+        }
+        
+        // Load from localStorage
+        const localAvatar = loadAvatarFromLocal(currentWorker.id);
+        
+        if (localAvatar) {
             const img = document.createElement('img');
-            img.src = avatarUrl;
+            img.src = localAvatar;
             img.alt = currentWorker.name;
+            img.style.cssText = 'width: 100%; height: 100%; object-fit: cover; border-radius: 50%;';
             avatarContainer.appendChild(img);
             icon.style.display = 'none';
             
