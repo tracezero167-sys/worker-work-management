@@ -1545,7 +1545,6 @@ const fontSizeValue = document.getElementById('fontSizeValue');
 const closeToolbarBtn = document.getElementById('closeToolbar');
 
 let currentActiveInput = null;
-let inputStylingSettings = JSON.parse(localStorage.getItem('inputStylingSettings')) || {};
 
 // Apply saved styling to inputs on page load
 function applySavedInputStyling() {
