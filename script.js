@@ -860,92 +860,110 @@ document.getElementById('cancelAddWorker').addEventListener('click', () => {
 let isSubmitting = false;
 let submitCooldown = false;
 
-// Remove default form submit completely
-document.getElementById('addWorkerForm').removeEventListener('submit', () => {});
-
-// Handle form submission manually via button
-document.getElementById('addWorkerForm').querySelector('button[type="submit"]').addEventListener('click', async (e) => {
+// Handle form submission - completely prevent default
+document.getElementById('addWorkerForm').addEventListener('submit', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    console.log('=== Save Worker Button Clicked ===');
-    
-    // Prevent multiple submissions with cooldown
-    if (isSubmitting || submitCooldown) {
-        console.log('Form already submitting or in cooldown, preventing duplicate');
-        return;
-    }
-    
-    isSubmitting = true;
-    submitCooldown = true;
-    
-    const name = document.getElementById('workerName').value.trim();
-    const mobile = document.getElementById('workerMobile').value.trim();
-    const whatsapp = document.getElementById('workerWhatsApp').value.trim();
-    const department = document.getElementById('workerDepartment').value;
-    const details = document.getElementById('workerDetails').value.trim();
-    const avatarInput = document.getElementById('workerAvatarInput');
-    
-    // Validate required fields
-    if (!name || !mobile) {
-        alert('Name and Mobile are required!');
-        isSubmitting = false;
-        submitCooldown = false;
-        return;
-    }
-    
-    console.log('Adding worker:', name);
-    
-    // Handle avatar upload to Supabase Storage
-    let avatarUrl = null;
-    const workerId = Date.now().toString();
-    
-    if (avatarInput.files && avatarInput.files[0]) {
-        console.log('Avatar file selected:', avatarInput.files[0].name);
-        avatarUrl = await uploadAvatarToSupabase(avatarInput.files[0], workerId);
-        console.log('Avatar upload result:', avatarUrl);
-    } else {
-        console.log('No avatar file selected');
-    }
-    
-    const newWorker = {
-        id: workerId,
-        name: name,
-        mobile: mobile,
-        // Note: whatsapp field not in Workers table yet, will add it later
-        department: department,
-        details: details,
-        avatar: avatarUrl,
-        cardColor: '#667eea',
-        dailyWork: [],
-        monthlyWork: [],
-        yearlyWork: [],
-        createdAt: new Date().toISOString(),
-        status: 'active'
-    };
-    
-    console.log('Creating worker:', newWorker);
-    
-    workers.push(newWorker);
-    
-    // Save avatar to localStorage if it's base64 (fallback)
-    if (avatarUrl && avatarUrl.startsWith('data:')) {
-        saveAvatarToLocal(workerId, avatarUrl);
-    }
-    
-    await saveWorkerToSupabase(newWorker);
-    addActivity('New worker added', `${name} has been added to the system`, 'worker');
-    
-    document.getElementById('addWorkerForm').reset();
-    showScreen('workerList');
-    
-    // Reset submission flags after delay
-    setTimeout(() => {
-        isSubmitting = false;
-        submitCooldown = false;
-        console.log('Submission cooldown reset');
-    }, 3000);
+    return false;
 });
+
+// Handle save button click
+const saveWorkerBtn = document.getElementById('addWorkerForm').querySelector('button[type="submit"]');
+if (saveWorkerBtn) {
+    saveWorkerBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        console.log('=== Save Worker Button Clicked ===');
+        
+        // Prevent multiple submissions
+        if (isSubmitting || submitCooldown) {
+            console.log('Form already submitting or in cooldown, preventing duplicate');
+            return;
+        }
+        
+        isSubmitting = true;
+        submitCooldown = true;
+        
+        // Disable button immediately
+        saveWorkerBtn.disabled = true;
+        saveWorkerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        
+        const name = document.getElementById('workerName').value.trim();
+        const mobile = document.getElementById('workerMobile').value.trim();
+        const whatsapp = document.getElementById('workerWhatsApp').value.trim();
+        const department = document.getElementById('workerDepartment').value;
+        const details = document.getElementById('workerDetails').value.trim();
+        const avatarInput = document.getElementById('workerAvatarInput');
+        
+        // Validate required fields
+        if (!name || !mobile) {
+            alert('Name and Mobile are required!');
+            isSubmitting = false;
+            submitCooldown = false;
+            saveWorkerBtn.disabled = false;
+            saveWorkerBtn.innerHTML = '<i class="fas fa-save"></i> Save Worker';
+            return;
+        }
+        
+        console.log('Adding worker:', name);
+        
+        // Handle avatar upload to Supabase Storage
+        let avatarUrl = null;
+        const workerId = Date.now().toString();
+        
+        if (avatarInput.files && avatarInput.files[0]) {
+            console.log('Avatar file selected:', avatarInput.files[0].name);
+            avatarUrl = await uploadAvatarToSupabase(avatarInput.files[0], workerId);
+            console.log('Avatar upload result:', avatarUrl);
+        } else {
+            console.log('No avatar file selected');
+        }
+        
+        const newWorker = {
+            id: workerId,
+            name: name,
+            mobile: mobile,
+            // Note: whatsapp field not in Workers table yet, will add it later
+            department: department,
+            details: details,
+            avatar: avatarUrl,
+            cardColor: '#667eea',
+            dailyWork: [],
+            monthlyWork: [],
+            yearlyWork: [],
+            createdAt: new Date().toISOString(),
+            status: 'active'
+        };
+        
+        console.log('Creating worker:', newWorker);
+        
+        workers.push(newWorker);
+        
+        // Save avatar to localStorage if it's base64 (fallback)
+        if (avatarUrl && avatarUrl.startsWith('data:')) {
+            saveAvatarToLocal(workerId, avatarUrl);
+        }
+        
+        await saveWorkerToSupabase(newWorker);
+        addActivity('New worker added', `${name} has been added to the system`, 'worker');
+        
+        document.getElementById('addWorkerForm').reset();
+        showScreen('workerList');
+        
+        // Re-enable button
+        saveWorkerBtn.disabled = false;
+        saveWorkerBtn.innerHTML = '<i class="fas fa-save"></i> Save Worker';
+        
+        // Reset submission flags after delay
+        setTimeout(() => {
+            isSubmitting = false;
+            submitCooldown = false;
+            console.log('Submission cooldown reset');
+        }, 3000);
+    });
+}
 
 function saveWorkers() {
     // Firebase sync handled by individual worker save functions
