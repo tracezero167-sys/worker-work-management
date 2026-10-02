@@ -2276,20 +2276,52 @@ document.getElementById('exportAllDataBtn').addEventListener('click', () => {
 });
 
 // Clear all data
-document.getElementById('clearAllDataBtn').addEventListener('click', () => {
+document.getElementById('clearAllDataBtn').addEventListener('click', async () => {
     if (confirm('Are you sure you want to delete ALL data? This action cannot be undone!')) {
-        if (confirm('This will permanently delete all workers, tasks, and settings. Continue?')) {
+        if (confirm('This will permanently delete all workers, tasks, and settings from both local storage AND Supabase. Continue?')) {
             // Clear all localStorage data
             localStorage.removeItem('workers');
             localStorage.removeItem('stickyNotes');
             localStorage.removeItem('appSettings');
             localStorage.removeItem('selectedFont');
             localStorage.removeItem('activities');
+            localStorage.removeItem('inputStylingSettings');
             
             // Reset in-memory data
             workers = [];
             notes = [];
             activities = [];
+            inputStylingSettings = {};
+            
+            // Clear all data from Supabase
+            try {
+                if (typeof window.supabase !== 'undefined') {
+                    console.log('Clearing data from Supabase...');
+                    
+                    // Delete all workers
+                    await window.supabase.from('Workers').delete().neq('id', 'impossible-id');
+                    console.log('All workers deleted from Supabase');
+                    
+                    // Delete all activities
+                    await window.supabase.from('activities').delete().neq('id', 'impossible-id');
+                    console.log('All activities deleted from Supabase');
+                    
+                    // Delete all notes
+                    await window.supabase.from('notes').delete().neq('id', 'impossible-id');
+                    console.log('All notes deleted from Supabase');
+                    
+                    // Delete all settings
+                    await window.supabase.from('settings').delete().neq('id', 'impossible-id');
+                    console.log('All settings deleted from Supabase');
+                    
+                    alert('All data cleared from both local storage and Supabase!');
+                } else {
+                    alert('Local storage cleared. Supabase not available.');
+                }
+            } catch (error) {
+                console.error('Error clearing Supabase data:', error);
+                alert('Local storage cleared. Error clearing Supabase: ' + error.message);
+            }
             
             // Refresh the app
             renderWorkerList();
@@ -2298,10 +2330,6 @@ document.getElementById('clearAllDataBtn').addEventListener('click', () => {
             loadSettings();
             
             closeSettingsModal();
-            
-            addActivity('Data cleared', 'All system data has been deleted', 'system');
-            
-            alert('All data has been successfully cleared.');
         }
     }
 });
