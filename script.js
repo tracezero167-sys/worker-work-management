@@ -4,29 +4,246 @@
 // ============================================
 
 // Data Management
-let workers = JSON.parse(localStorage.getItem('workers')) || [];
+let workers = [];
 let currentWorker = null;
 let currentWorkType = null;
 let currentFilter = 'all';
-let activities = JSON.parse(localStorage.getItem('activities')) || [];
-let notifications = JSON.parse(localStorage.getItem('notifications')) || [];
+let activities = [];
+let notifications = [];
 let currentCardColorWorkerId = null;
-let notes = JSON.parse(localStorage.getItem('stickyNotes')) || [
-    {
-        id: 'note-demo-1',
-        title: 'Delivery Plan',
-        text: 'Need to verify route timings and assign extra support for Sunday shifts.',
-        color: 'yellow',
-        rotate: -2
-    },
-    {
-        id: 'note-demo-2',
-        title: 'Safety Check',
-        text: 'Inspect helmets and check maintenance tools before the next shift.',
-        color: 'pink',
-        rotate: 2
+let notes = [];
+let inputStylingSettings = {};
+
+// Supabase Functions
+async function loadWorkersFromSupabase() {
+    try {
+        const { data, error } = await supabase
+            .from('workers')
+            .select('*');
+        
+        if (error) throw error;
+        workers = data || [];
+        console.log('Workers loaded from Supabase:', workers.length);
+    } catch (error) {
+        console.error('Error loading workers:', error);
+        // Fallback to localStorage if Supabase fails
+        workers = JSON.parse(localStorage.getItem('workers')) || [];
     }
-];
+}
+
+async function saveWorkerToSupabase(worker) {
+    try {
+        const { error } = await supabase
+            .from('workers')
+            .upsert(worker);
+        
+        if (error) throw error;
+        console.log('Worker saved to Supabase:', worker.id);
+    } catch (error) {
+        console.error('Error saving worker:', error);
+        // Fallback to localStorage
+        const localWorkers = JSON.parse(localStorage.getItem('workers')) || [];
+        const index = localWorkers.findIndex(w => w.id === worker.id);
+        if (index !== -1) {
+            localWorkers[index] = worker;
+        } else {
+            localWorkers.push(worker);
+        }
+        localStorage.setItem('workers', JSON.stringify(localWorkers));
+    }
+}
+
+async function deleteWorkerFromSupabase(workerId) {
+    try {
+        const { error } = await supabase
+            .from('workers')
+            .delete()
+            .eq('id', workerId);
+        
+        if (error) throw error;
+        console.log('Worker deleted from Supabase:', workerId);
+    } catch (error) {
+        console.error('Error deleting worker:', error);
+        // Fallback to localStorage
+        const localWorkers = JSON.parse(localStorage.getItem('workers')) || [];
+        const filtered = localWorkers.filter(w => w.id !== workerId);
+        localStorage.setItem('workers', JSON.stringify(filtered));
+    }
+}
+
+async function loadActivitiesFromSupabase() {
+    try {
+        const { data, error } = await supabase
+            .from('activities')
+            .select('*')
+            .order('timestamp', { ascending: false })
+            .limit(10);
+        
+        if (error) throw error;
+        activities = data || [];
+        console.log('Activities loaded from Supabase:', activities.length);
+    } catch (error) {
+        console.error('Error loading activities:', error);
+        activities = JSON.parse(localStorage.getItem('activities')) || [];
+    }
+}
+
+async function saveActivityToSupabase(activity) {
+    try {
+        const { error } = await supabase
+            .from('activities')
+            .upsert(activity);
+        
+        if (error) throw error;
+        console.log('Activity saved to Supabase:', activity.id);
+    } catch (error) {
+        console.error('Error saving activity:', error);
+        const localActivities = JSON.parse(localStorage.getItem('activities')) || [];
+        localActivities.unshift(activity);
+        if (localActivities.length > 10) {
+            localActivities.pop();
+        }
+        localStorage.setItem('activities', JSON.stringify(localActivities));
+    }
+}
+
+async function loadNotesFromSupabase() {
+    try {
+        const { data, error } = await supabase
+            .from('notes')
+            .select('*');
+        
+        if (error) throw error;
+        notes = data || [];
+        
+        if (notes.length === 0) {
+            // Add default notes if none exist
+            notes = [
+                {
+                    id: 'note-demo-1',
+                    title: 'Delivery Plan',
+                    text: 'Need to verify route timings and assign extra support for Sunday shifts.',
+                    color: 'yellow',
+                    rotate: -2
+                },
+                {
+                    id: 'note-demo-2',
+                    title: 'Safety Check',
+                    text: 'Inspect helmets and check maintenance tools before the next shift.',
+                    color: 'pink',
+                    rotate: 2
+                }
+            ];
+            // Save default notes to Supabase
+            for (const note of notes) {
+                await supabase.from('notes').upsert(note);
+            }
+        }
+        console.log('Notes loaded from Supabase:', notes.length);
+    } catch (error) {
+        console.error('Error loading notes:', error);
+        notes = JSON.parse(localStorage.getItem('stickyNotes')) || [
+            {
+                id: 'note-demo-1',
+                title: 'Delivery Plan',
+                text: 'Need to verify route timings and assign extra support for Sunday shifts.',
+                color: 'yellow',
+                rotate: -2
+            },
+            {
+                id: 'note-demo-2',
+                title: 'Safety Check',
+                text: 'Inspect helmets and check maintenance tools before the next shift.',
+                color: 'pink',
+                rotate: 2
+            }
+        ];
+    }
+}
+
+async function saveNoteToSupabase(note) {
+    try {
+        const { error } = await supabase
+            .from('notes')
+            .upsert(note);
+        
+        if (error) throw error;
+        console.log('Note saved to Supabase:', note.id);
+    } catch (error) {
+        console.error('Error saving note:', error);
+        const localNotes = JSON.parse(localStorage.getItem('stickyNotes')) || [];
+        const index = localNotes.findIndex(n => n.id === note.id);
+        if (index !== -1) {
+            localNotes[index] = note;
+        } else {
+            localNotes.unshift(note);
+        }
+        localStorage.setItem('stickyNotes', JSON.stringify(localNotes));
+    }
+}
+
+async function deleteNoteFromSupabase(noteId) {
+    try {
+        const { error } = await supabase
+            .from('notes')
+            .delete()
+            .eq('id', noteId);
+        
+        if (error) throw error;
+        console.log('Note deleted from Supabase:', noteId);
+    } catch (error) {
+        console.error('Error deleting note:', error);
+        const localNotes = JSON.parse(localStorage.getItem('stickyNotes')) || [];
+        const filtered = localNotes.filter(n => n.id !== noteId);
+        localStorage.setItem('stickyNotes', JSON.stringify(filtered));
+    }
+}
+
+async function loadSettingsFromSupabase() {
+    try {
+        const { data, error } = await supabase
+            .from('settings')
+            .select('*')
+            .eq('id', 'inputStyling')
+            .single();
+        
+        if (error && error.code !== 'PGRST116') throw error;
+        
+        if (data) {
+            inputStylingSettings = data;
+            console.log('Settings loaded from Supabase');
+        }
+    } catch (error) {
+        console.error('Error loading settings:', error);
+        inputStylingSettings = JSON.parse(localStorage.getItem('inputStylingSettings')) || {};
+    }
+}
+
+async function saveSettingsToSupabase() {
+    try {
+        const settingsWithId = { ...inputStylingSettings, id: 'inputStyling' };
+        const { error } = await supabase
+            .from('settings')
+            .upsert(settingsWithId);
+        
+        if (error) throw error;
+        console.log('Settings saved to Supabase');
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        localStorage.setItem('inputStylingSettings', JSON.stringify(inputStylingSettings));
+    }
+}
+
+// Load all data on page load
+async function loadAllData() {
+    await Promise.all([
+        loadWorkersFromSupabase(),
+        loadActivitiesFromSupabase(),
+        loadNotesFromSupabase(),
+        loadSettingsFromSupabase()
+    ]);
+    console.log('All data loaded from Supabase');
+}
 
 // DOM Elements
 const screens = {
@@ -102,7 +319,8 @@ function applySavedFont() {
 }
 
 function saveNotes() {
-    localStorage.setItem('stickyNotes', JSON.stringify(notes));
+    // Firebase sync handled by individual note save functions
+    // This is kept for backward compatibility
 }
 
 function renderNotes() {
@@ -135,7 +353,7 @@ function renderNotes() {
             
             setTimeout(() => {
                 notes = notes.filter((note) => note.id !== noteId);
-                saveNotes();
+                deleteNoteFromSupabase(noteId);
                 renderNotes();
             }, 300);
         });
@@ -152,15 +370,16 @@ function addNote() {
         return;
     }
 
-    notes.unshift({
+    const newNote = {
         id: Date.now().toString(),
         title: title || 'Quick Note',
         text,
         color,
         rotate: ((Math.random() * 5) - 2.5)
-    });
+    };
 
-    saveNotes();
+    notes.unshift(newNote);
+    saveNoteToSupabase(newNote);
     renderNotes();
     noteTitleInput.value = '';
     noteTextInput.value = '';
@@ -217,8 +436,39 @@ if (document.getElementById('addNoteBtn')) {
     });
 }
 
-applySavedFont();
-renderNotes();
+// Initialize Supabase and load data
+if (typeof supabase !== 'undefined') {
+    loadAllData().then(() => {
+        applySavedFont();
+        renderNotes();
+        updateDashboardStats();
+    });
+} else {
+    // Fallback to localStorage if Supabase not initialized
+    console.log('Supabase not initialized, using localStorage');
+    workers = JSON.parse(localStorage.getItem('workers')) || [];
+    activities = JSON.parse(localStorage.getItem('activities')) || [];
+    notes = JSON.parse(localStorage.getItem('stickyNotes')) || [
+        {
+            id: 'note-demo-1',
+            title: 'Delivery Plan',
+            text: 'Need to verify route timings and assign extra support for Sunday shifts.',
+            color: 'yellow',
+            rotate: -2
+        },
+        {
+            id: 'note-demo-2',
+            title: 'Safety Check',
+            text: 'Inspect helmets and check maintenance tools before the next shift.',
+            color: 'pink',
+            rotate: 2
+        }
+    ];
+    inputStylingSettings = JSON.parse(localStorage.getItem('inputStylingSettings')) || {};
+    applySavedFont();
+    renderNotes();
+    updateDashboardStats();
+}
 
 // ============================================
 // NAVIGATION SYSTEM
@@ -512,7 +762,7 @@ document.getElementById('addWorkerForm').addEventListener('submit', (e) => {
             };
             
             workers.push(newWorker);
-            saveWorkers();
+            saveWorkerToSupabase(newWorker);
             addActivity('New worker added', `${name} has been added to the system`, 'worker');
             
             document.getElementById('addWorkerForm').reset();
@@ -522,7 +772,8 @@ document.getElementById('addWorkerForm').addEventListener('submit', (e) => {
 });
 
 function saveWorkers() {
-    localStorage.setItem('workers', JSON.stringify(workers));
+    // Firebase sync handled by individual worker save functions
+    // This is kept for backward compatibility
 }
 
 function renderWorkerList() {
@@ -635,7 +886,7 @@ document.getElementById('cardColorPicker').addEventListener('input', (e) => {
         const workerIndex = workers.findIndex(w => w.id === currentCardColorWorkerId);
         if (workerIndex !== -1) {
             workers[workerIndex].cardColor = e.target.value;
-            saveWorkers();
+            saveWorkerToSupabase(workers[workerIndex]);
             renderWorkerList();
         }
     }
@@ -750,7 +1001,7 @@ document.getElementById('avatarUpload').addEventListener('change', (e) => {
             const workerIndex = workers.findIndex(w => w.id === currentWorker.id);
             if (workerIndex !== -1) {
                 workers[workerIndex] = currentWorker;
-                saveWorkers();
+                saveWorkerToSupabase(currentWorker);
             }
             
             // Update UI
@@ -799,7 +1050,7 @@ if (document.getElementById('workerColorPicker')) {
             const workerIndex = workers.findIndex(w => w.id === currentWorker.id);
             if (workerIndex !== -1) {
                 workers[workerIndex] = currentWorker;
-                saveWorkers();
+                saveWorkerToSupabase(currentWorker);
             }
         }
     });
@@ -1026,7 +1277,7 @@ function updateWorkerAndRefresh() {
     const workerIndex = workers.findIndex(w => w.id === currentWorker.id);
     if (workerIndex !== -1) {
         workers[workerIndex] = currentWorker;
-        saveWorkers();
+        saveWorkerToSupabase(currentWorker);
     }
     renderWorkList(currentWorkType);
 }
@@ -1206,7 +1457,7 @@ function addActivity(title, description, type = 'system') {
         activities = activities.slice(0, 10);
     }
     
-    localStorage.setItem('activities', JSON.stringify(activities));
+    saveActivityToSupabase(activity);
     updateActivityList();
     
     // Also add as notification
@@ -1403,7 +1654,7 @@ function applyInputStyling() {
         fontSize
     };
     
-    localStorage.setItem('inputStylingSettings', JSON.stringify(inputStylingSettings));
+    saveSettingsToSupabase();
     
     // Update font size display
     fontSizeValue.textContent = fontSize;

@@ -15,3 +15,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Config files with sensitive data
+firebase-config.js
+supabase-config.js
