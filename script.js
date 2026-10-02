@@ -806,17 +806,22 @@ document.getElementById('cancelAddWorker').addEventListener('click', () => {
 
 // Prevent duplicate submissions
 let isSubmitting = false;
+let submitCooldown = false;
 
 document.getElementById('addWorkerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    e.stopPropagation();
     
-    // Prevent multiple submissions
-    if (isSubmitting) {
-        console.log('Form already submitting, preventing duplicate');
-        return;
+    console.log('Form submit triggered');
+    
+    // Prevent multiple submissions with cooldown
+    if (isSubmitting || submitCooldown) {
+        console.log('Form already submitting or in cooldown, preventing duplicate');
+        return false;
     }
     
     isSubmitting = true;
+    submitCooldown = true;
     
     const name = document.getElementById('workerName').value.trim();
     const mobile = document.getElementById('workerMobile').value.trim();
@@ -829,8 +834,11 @@ document.getElementById('addWorkerForm').addEventListener('submit', async (e) =>
     if (!name || !mobile) {
         alert('Name and Mobile are required!');
         isSubmitting = false;
-        return;
+        submitCooldown = false;
+        return false;
     }
+    
+    console.log('Adding worker:', name);
     
     // Handle avatar upload to Supabase Storage
     let avatarUrl = null;
@@ -869,8 +877,14 @@ document.getElementById('addWorkerForm').addEventListener('submit', async (e) =>
     document.getElementById('addWorkerForm').reset();
     showScreen('workerList');
     
-    // Reset submission flag
-    isSubmitting = false;
+    // Reset submission flags after delay
+    setTimeout(() => {
+        isSubmitting = false;
+        submitCooldown = false;
+        console.log('Submission cooldown reset');
+    }, 3000);
+    
+    return false;
 });
 
 function saveWorkers() {
