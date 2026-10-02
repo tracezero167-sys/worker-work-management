@@ -331,19 +331,27 @@ async function loadSettingsFromSupabase() {
 
 async function saveSettingsToSupabase() {
     try {
+        console.log('Saving settings to Supabase:', inputStylingSettings);
+
         // Only save data column with id
         const settingsData = {
             id: 'inputStyling',
             data: inputStylingSettings
         };
-        const { error } = await window.supabase
+
+        const { error, data } = await window.supabase
             .from('settings')
             .upsert(settingsData);
-        
-        if (error) throw error;
-        console.log('Settings saved to Supabase');
+
+        if (error) {
+            console.error('Supabase upsert error:', error);
+            throw error;
+        }
+
+        console.log('Settings saved to Supabase successfully:', data);
     } catch (error) {
         console.error('Error saving settings:', error);
+        console.log('Falling back to localStorage');
         localStorage.setItem('inputStylingSettings', JSON.stringify(inputStylingSettings));
     }
 }
