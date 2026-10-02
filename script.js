@@ -37,9 +37,25 @@ async function loadWorkersFromSupabase() {
 
 async function saveWorkerToSupabase(worker) {
     try {
+        // Only include columns that exist in the Workers table
+        const workerData = {
+            id: worker.id,
+            name: worker.name,
+            mobile: worker.mobile,
+            department: worker.department,
+            details: worker.details,
+            avatar: worker.avatar,
+            cardColor: worker.cardColor,
+            dailyWork: worker.dailyWork,
+            monthlyWork: worker.monthlyWork,
+            yearlyWork: worker.yearlyWork,
+            createdAt: worker.createdAt,
+            status: worker.status
+        };
+        
         const { error } = await window.supabase
             .from('Workers')
-            .upsert(worker);
+            .upsert(workerData);
         
         if (error) throw error;
         console.log('Worker saved to Supabase:', worker.id);
@@ -225,8 +241,8 @@ async function loadSettingsFromSupabase() {
         
         if (error && error.code !== 'PGRST116') throw error;
         
-        if (data) {
-            inputStylingSettings = data;
+        if (data && data.data) {
+            inputStylingSettings = data.data;
             console.log('Settings loaded from Supabase');
         }
     } catch (error) {
@@ -237,10 +253,14 @@ async function loadSettingsFromSupabase() {
 
 async function saveSettingsToSupabase() {
     try {
-        const settingsWithId = { ...inputStylingSettings, id: 'inputStyling' };
+        // Only save data column with id
+        const settingsData = {
+            id: 'inputStyling',
+            data: inputStylingSettings
+        };
         const { error } = await window.supabase
             .from('settings')
-            .upsert(settingsWithId);
+            .upsert(settingsData);
         
         if (error) throw error;
         console.log('Settings saved to Supabase');
@@ -765,7 +785,7 @@ document.getElementById('addWorkerForm').addEventListener('submit', (e) => {
                 id: Date.now().toString(),
                 name: name,
                 mobile: mobile,
-                whatsapp: whatsapp || mobile, // Use WhatsApp number if provided, else use mobile
+                // Note: whatsapp field not in Workers table yet, will add it later
                 department: department,
                 details: details,
                 avatar: avatarData,
@@ -927,7 +947,7 @@ function showWorkerProfile() {
     
     document.getElementById('workerProfileName').textContent = currentWorker.name;
     document.getElementById('workerProfileMobile').textContent = currentWorker.mobile;
-    document.getElementById('workerProfileWhatsApp').textContent = currentWorker.whatsapp || currentWorker.mobile;
+    document.getElementById('workerProfileWhatsApp').textContent = currentWorker.mobile; // Use mobile since whatsapp column not in table yet
     document.getElementById('workerProfileEmail').textContent = currentWorker.email || 'Not provided';
     document.getElementById('workerProfileDepartment').textContent = currentWorker.department || 'Not assigned';
     document.getElementById('workerProfileDetails').textContent = currentWorker.details || 'No additional details';
@@ -1258,8 +1278,8 @@ function sendReminder(workId) {
     const workKey = `${currentWorkType}Work`;
     const work = currentWorker[workKey].find(w => w.id === workId);
     
-    // Use WhatsApp number if available, else use mobile
-    const mobileNumber = currentWorker.whatsapp || currentWorker.mobile;
+    // Use mobile number (whatsapp column not in table yet)
+    const mobileNumber = currentWorker.mobile;
     
     if (work && mobileNumber) {
         // Clean mobile number (remove spaces, dashes, etc.)
