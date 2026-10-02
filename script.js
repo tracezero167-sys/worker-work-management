@@ -100,8 +100,19 @@ async function loadWorkersFromSupabase() {
         console.log('Workers loaded from Supabase:', workers.length);
     } catch (error) {
         console.error('Error loading workers:', error);
-        workers = localWorkers;
-        persistWorkersToLocalStorage();
+        // Fallback to localStorage if Supabase fails
+        const savedWorkers = JSON.parse(localStorage.getItem('workers')) || [];
+        if (Array.isArray(savedWorkers) && savedWorkers.length > 0) {
+            workers = savedWorkers.map(worker => ({
+                ...worker,
+                dailyWork: Array.isArray(worker.dailyWork) ? worker.dailyWork : [],
+                monthlyWork: Array.isArray(worker.monthlyWork) ? worker.monthlyWork : [],
+                yearlyWork: Array.isArray(worker.yearlyWork) ? worker.yearlyWork : []
+            }));
+            console.log('Workers loaded from localStorage fallback:', workers.length);
+        } else {
+            workers = [];
+        }
     }
 }
 
