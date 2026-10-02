@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Worker Work Management System | Professional Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-briefcase"></i>
+                    <span>WorkForce Pro</span>
+                </div>
+                <button class="close-sidebar-btn" id="closeSidebarBtn" onclick="closeSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-screen="home">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-screen="addWorker">
+                    <i class="fas fa-user-plus"></i>
+                    <span>Add Worker</span>
+                </a>
+                <a href="#" class="nav-item" data-screen="workerList">
+                    <i class="fas fa-users"></i>
+                    <span>Worker List</span>
+                </a>
+                <a href="#" class="nav-item" data-screen="analytics">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Analytics</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <div class="user-details">
+                        <span class="user-name">Admin</span>
+                        <span class="user-role">System Administrator</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-header">
+                <div class="header-left">
+                    <button class="menu-toggle" id="menuToggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1 class="page-title" id="pageTitle">Dashboard</h1>
+                </div>
+                <div class="header-right">
+                    <div class="font-controls">
+                        <label for="fontSelector"><i class="fas fa-font"></i> Font</label>
+                        <select id="fontSelector" aria-label="Select app font">
+                            <option value="'Segoe UI', sans-serif">Segoe UI</option>
+                            <option value="'Poppins', sans-serif">Poppins</option>
+                            <option value="'Roboto', sans-serif">Roboto</option>
+                            <option value="'Open Sans', sans-serif">Open Sans</option>
+                            <option value="'Lato', sans-serif">Lato</option>
+                            <option value="'Montserrat', sans-serif">Montserrat</option>
+                            <option value="'Merriweather', serif">Merriweather</option>
+                            <option value="'Playfair Display', serif">Playfair Display</option>
+                            <option value="'Source Sans Pro', sans-serif">Source Sans Pro</option>
+                            <option value="'Ubuntu', sans-serif">Ubuntu</option>
+                            <option value="'Nunito', sans-serif">Nunito</option>
+                            <option value="'Raleway', sans-serif">Raleway</option>
+                            <option value="'Oswald', sans-serif">Oswald</option>
+                            <option value="'Lora', serif">Lora</option>
+                            <option value="'PT Sans', sans-serif">PT Sans</option>
+                        </select>
+                    </div>
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="globalSearch" placeholder="Search workers, tasks...">
+                    </div>
+                    <button class="header-btn" id="exportBtn" title="Export Data">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="header-btn" id="notificationsBtn" title="Notifications">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge">3</span>
+                    </button>
+                    <button class="header-btn" id="settingsBtn" title="Settings">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dashboard Screen -->
+            <div id="homeScreen" class="screen active">
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card" data-screen="workerList" tabindex="0" role="button" aria-label="View total workers">
+                        <div class="stat-icon total-workers">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Total Workers</h3>
+                            <p class="stat-value" id="totalWorkers">0</p>
+                            <span class="stat-trend positive">
+                                <i class="fas fa-arrow-up"></i> 12% this month
+                            </span>
+                        </div>
+                    </div>
+                    <div class="stat-card" data-screen="workerList" tabindex="0" role="button" aria-label="View active tasks">
+                        <div class="stat-icon active-tasks">
+                            <i class="fas fa-tasks"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Active Tasks</h3>
+                            <p class="stat-value" id="activeTasks">0</p>
+                            <span class="stat-trend positive">
+                                <i class="fas fa-arrow-up"></i> 8% this week
+                            </span>
+                        </div>
+                    </div>
+                    <div class="stat-card" data-screen="analytics" tabindex="0" role="button" aria-label="View completed tasks analytics">
+                        <div class="stat-icon completed-tasks">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Completed Tasks</h3>
+                            <p class="stat-value" id="completedTasks">0</p>
+                            <span class="stat-trend positive">
+                                <i class="fas fa-arrow-up"></i> 24% this month
+                            </span>
+                        </div>
+                    </div>
+                    <div class="stat-card" data-screen="analytics" tabindex="0" role="button" aria-label="View pending tasks analytics">
+                        <div class="stat-icon pending-tasks">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Pending Tasks</h3>
+                            <p class="stat-value" id="pendingTasks">0</p>
+                            <span class="stat-trend negative">
+                                <i class="fas fa-arrow-down"></i> 5% this week
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <h2>Quick Actions</h2>
+                    <div class="action-buttons">
+                        <button id="addWorkerBtn" class="action-btn primary">
+                            <i class="fas fa-user-plus"></i>
+                            <span>Add Worker</span>
+                        </button>
+                        <button id="workerListBtn" class="action-btn secondary">
+                            <i class="fas fa-users"></i>
+                            <span>View Workers</span>
+                        </button>
+                        <button id="analyticsBtn" class="action-btn accent">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Analytics</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sticky-notes-panel">
+                    <div class="notes-header">
+                        <h2>Sticky Notes</h2>
+                        <button id="addNoteBtn" class="btn btn-primary small-btn">
+                            <i class="fas fa-plus"></i>
+                            New Note
+                        </button>
+                    </div>
+
+                    <div class="note-composer" id="noteComposer">
+                        <div class="note-input-row">
+                            <input type="text" id="noteTitle" placeholder="Title" maxlength="30">
+                            <select id="noteColor" aria-label="Choose note color">
+                                <option value="yellow">🌟 Yellow</option>
+                                <option value="pink">🌸 Pink</option>
+                                <option value="green">🌿 Green</option>
+                                <option value="blue">💙 Blue</option>
+                                <option value="purple">💜 Purple</option>
+                            </select>
+                        </div>
+                        <textarea id="noteText" rows="3" placeholder="Write a quick reminder or update..."></textarea>
+                        <div class="composer-actions">
+                            <button id="saveNoteBtn" class="btn btn-primary">
+                                <i class="fas fa-save"></i>
+                                Save Note
+                            </button>
+                            <button id="clearNoteBtn" class="btn btn-secondary">
+                                <i class="fas fa-eraser"></i>
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="notesContainer" class="notes-container" aria-live="polite"></div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="recent-activity">
+                    <h2>Recent Activity</h2>
+                    <div class="activity-list" id="activityList">
+                        <div class="activity-item">
+                            <div class="activity-icon">
+                                <i class="fas fa-user-plus"></i>
+                            </div>
+                            <div class="activity-content">
+                                <p class="activity-text">New worker added to the system</p>
+                                <span class="activity-time">2 hours ago</span>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="activity-content">
+                                <p class="activity-text">Task marked as completed</p>
+                                <span class="activity-time">5 hours ago</span>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-icon">
+                                <i class="fas fa-tasks"></i>
+                            </div>
+                            <div class="activity-content">
+                                <p class="activity-text">New daily work assigned</p>
+                                <span class="activity-time">1 day ago</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Worker Screen -->
+            <div id="addWorkerScreen" class="screen">
+                <div class="page-header">
+                    <h2>Add New Worker</h2>
+                    <p class="page-subtitle">Enter worker details to add them to the system</p>
+                </div>
+                <div class="form-container professional-form">
+                    <form id="addWorkerForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="workerName">
+                                    <i class="fas fa-user"></i>
+                                    Worker Name *
+                                </label>
+                                <input type="text" id="workerName" required placeholder="Enter full name">
+                                <span class="input-helper">Enter the worker's complete name</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="workerMobile">
+                                    <i class="fas fa-phone"></i>
+                                    Mobile Number *
+                                </label>
+                                <input type="tel" id="workerMobile" required placeholder="Enter mobile number">
+                                <span class="input-helper">Format: +91 XXXXX XXXXX</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="workerAvatarInput">
+                                    <i class="fas fa-camera"></i>
+                                    Profile Photo
+                                </label>
+                                <input type="file" id="workerAvatarInput" accept="image/*">
+                                <span class="input-helper">Upload worker's profile picture</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="workerWhatsApp">
+                                    <i class="fab fa-whatsapp"></i>
+                                    WhatsApp Number
+                                </label>
+                                <input type="tel" id="workerWhatsApp" placeholder="Enter WhatsApp number">
+                                <span class="input-helper">Format: +91 XXXXX XXXXX</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="workerDepartment">
+                                    <i class="fas fa-building"></i>
+                                    Department
+                                </label>
+                                <input type="text" id="workerDepartment" placeholder="Enter department (e.g., Delivery, Maintenance, Operations, Logistics, Other)" />
+                                <span class="input-helper">Assign department</span>
+                            </div>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="workerDetails">
+                                <i class="fas fa-info-circle"></i>
+                                Additional Details
+                            </label>
+                            <textarea id="workerDetails" rows="4" placeholder="Enter any additional information about the worker"></textarea>
+                            <span class="input-helper">Skills, experience, notes, etc.</span>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i>
+                                Save Worker
+                            </button>
+                            <button type="button" id="cancelAddWorker" class="btn btn-secondary">
+                                <i class="fas fa-times"></i>
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Worker List Screen -->
+            <div id="workerListScreen" class="screen">
+                <div class="page-header">
+                    <h2>Worker Management</h2>
+                    <p class="page-subtitle">View and manage all workers in the system</p>
+                </div>
+                <div class="worker-list-container">
+                    <div class="list-controls">
+                        <div class="search-filter">
+                            <div class="search-input-wrapper">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="workerSearch" placeholder="Search workers...">
+                            </div>
+                            <div class="filter-buttons">
+                                <button class="filter-btn active" data-filter="all">All</button>
+                                <button class="filter-btn" data-filter="active">Active</button>
+                                <button class="filter-btn" data-filter="inactive">Inactive</button>
+                            </div>
+                        </div>
+                        <button id="addWorkerFromList" class="btn btn-primary">
+                            <i class="fas fa-user-plus"></i>
+                            Add Worker
+                        </button>
+                    </div>
+                    <div id="workerList" class="worker-grid professional-grid">
+                        <!-- Workers will be dynamically added here -->
+                    </div>
+                    
+                    <!-- Worker Card Color Picker -->
+                    <div id="workerCardColorPicker" class="worker-card-color-picker" style="display: none;">
+                        <label for="cardColorPicker">
+                            <i class="fas fa-palette"></i>
+                            Card Color
+                        </label>
+                        <input type="color" id="cardColorPicker" value="#667eea" title="Choose card color">
+                        <button id="closeCardColorPicker" class="close-color-picker">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div id="noWorkers" class="empty-state professional-empty">
+                        <div class="empty-icon">
+                            <i class="fas fa-users-slash"></i>
+                        </div>
+                        <h3>No Workers Found</h3>
+                        <p>Get started by adding your first worker to the system</p>
+                        <button id="addFirstWorker" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            Add First Worker
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Worker Profile Screen -->
+            <div id="workerProfileScreen" class="screen">
+                <div class="worker-profile-container">
+                    <!-- Profile Header -->
+                    <div class="profile-header-section">
+                        <button id="backToWorkerList" class="btn btn-back">
+                            <i class="fas fa-arrow-left"></i>
+                            Back to Workers
+                        </button>
+                        <div class="worker-info-card">
+                            <div class="worker-avatar-large" id="workerProfileAvatar">
+                                <i class="fas fa-user"></i>
+                                <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+                                <button class="avatar-upload-btn" id="avatarUploadBtn" title="Upload photo">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                            </div>
+                            <div class="worker-details-section">
+                                <div class="worker-color-picker">
+                                    <label for="workerColorPicker">
+                                        <i class="fas fa-palette"></i>
+                                        Card Color
+                                    </label>
+                                    <input type="color" id="workerColorPicker" value="#667eea" title="Choose card color">
+                                </div>
+                                <h2 id="workerProfileName">Worker Name</h2>
+                                <div class="worker-meta">
+                                    <span class="meta-item">
+                                        <i class="fas fa-phone"></i>
+                                        <span id="workerProfileMobile">Mobile</span>
+                                    </span>
+                                    <span class="meta-item">
+                                        <i class="fab fa-whatsapp"></i>
+                                        <span id="workerProfileWhatsApp">WhatsApp</span>
+                                    </span>
+                                    <span class="meta-item">
+                                        <i class="fas fa-envelope"></i>
+                                        <span id="workerProfileEmail">Email</span>
+                                    </span>
+                                    <span class="meta-item">
+                                        <i class="fas fa-building"></i>
+                                        <span id="workerProfileDepartment">Department</span>
+                                    </span>
+                                </div>
+                                <p id="workerProfileDetails" class="worker-description">Additional details</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Worker Stats -->
+                    <div class="worker-stats-grid">
+                        <div class="worker-stat-card">
+                            <div class="stat-icon-small daily">
+                                <i class="fas fa-calendar-day"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h4>Daily Tasks</h4>
+                                <p id="dailyTaskCount">0</p>
+                            </div>
+                        </div>
+                        <div class="worker-stat-card">
+                            <div class="stat-icon-small monthly">
+                                <i class="fas fa-calendar-alt"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h4>Monthly Tasks</h4>
+                                <p id="monthlyTaskCount">0</p>
+                            </div>
+                        </div>
+                        <div class="worker-stat-card">
+                            <div class="stat-icon-small yearly">
+                                <i class="fas fa-calendar"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h4>Yearly Tasks</h4>
+                                <p id="yearlyTaskCount">0</p>
+                            </div>
+                        </div>
+                        <div class="worker-stat-card">
+                            <div class="stat-icon-small completion">
+                                <i class="fas fa-chart-pie"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h4>Completion Rate</h4>
+                                <p id="completionRate">0%</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Work Options -->
+                    <div class="work-management-section">
+                        <h3>Work Management</h3>
+                        <div class="work-options-grid">
+                            <button id="dailyWorkBtn" class="work-option-card professional">
+                                <div class="work-icon-wrapper daily">
+                                    <i class="fas fa-calendar-day"></i>
+                                </div>
+                                <div class="work-option-content">
+                                    <h3>Daily Work</h3>
+                                    <p>Manage daily tasks and assignments</p>
+                                    <span class="task-count" id="dailyWorkCount">0 tasks</span>
+                                </div>
+                                <i class="fas fa-chevron-right option-arrow"></i>
+                            </button>
+                            <button id="monthlyWorkBtn" class="work-option-card professional">
+                                <div class="work-icon-wrapper monthly">
+                                    <i class="fas fa-calendar-alt"></i>
+                                </div>
+                                <div class="work-option-content">
+                                    <h3>Monthly Work</h3>
+                                    <p>Track monthly goals and objectives</p>
+                                    <span class="task-count" id="monthlyWorkCount">0 tasks</span>
+                                </div>
+                                <i class="fas fa-chevron-right option-arrow"></i>
+                            </button>
+                            <button id="yearlyWorkBtn" class="work-option-card professional">
+                                <div class="work-icon-wrapper yearly">
+                                    <i class="fas fa-calendar"></i>
+                                </div>
+                                <div class="work-option-content">
+                                    <h3>Yearly Work</h3>
+                                    <p>Monitor annual targets and projects</p>
+                                    <span class="task-count" id="yearlyWorkCount">0 tasks</span>
+                                </div>
+                                <i class="fas fa-chevron-right option-arrow"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Daily Work Screen -->
+            <div id="dailyWorkScreen" class="screen">
+                <div class="work-screen-container">
+                    <div class="work-screen-header">
+                        <div class="header-left">
+                            <button id="backToProfileDaily" class="btn btn-back">
+                                <i class="fas fa-arrow-left"></i>
+                                Back to Profile
+                            </button>
+                            <div>
+                                <h2>Daily Work Management</h2>
+                                <p class="header-subtitle">Manage daily tasks for <span id="dailyWorkerName">Worker</span></p>
+                            </div>
+                        </div>
+                        <div class="header-right">
+                            <div class="work-summary">
+                                <span class="summary-item completed">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span id="dailyCompleted">0</span> Completed
+                                </span>
+                                <span class="summary-item pending">
+                                    <i class="fas fa-clock"></i>
+                                    <span id="dailyPending">0</span> Pending
+                                </span>
+                            </div>
+                            <button id="addDailyWork" class="btn btn-primary">
+                                <i class="fas fa-plus"></i>
+                                Add Daily Work
+                            </button>
+                        </div>
+                    </div>
+                    <div class="work-filters">
+                        <button class="filter-work-btn active" data-filter="all">All Tasks</button>
+                        <button class="filter-work-btn" data-filter="pending">Pending</button>
+                        <button class="filter-work-btn" data-filter="completed">Completed</button>
+                    </div>
+                    <div id="dailyWorkList" class="work-list professional">
+                        <!-- Daily work items will be dynamically added here -->
+                    </div>
+                    <div id="noDailyWork" class="empty-state professional-empty">
+                        <div class="empty-icon">
+                            <i class="fas fa-calendar-day"></i>
+                        </div>
+                        <h3>No Daily Tasks</h3>
+                        <p>Start by adding daily work assignments</p>
+                        <button class="btn btn-primary add-first-task" data-type="daily">
+                            <i class="fas fa-plus"></i>
+                            Add First Task
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monthly Work Screen -->
+            <div id="monthlyWorkScreen" class="screen">
+                <div class="work-screen-container">
+                    <div class="work-screen-header">
+                        <div class="header-left">
+                            <button id="backToProfileMonthly" class="btn btn-back">
+                                <i class="fas fa-arrow-left"></i>
+                                Back to Profile
+                            </button>
+                            <div>
+                                <h2>Monthly Work Management</h2>
+                                <p class="header-subtitle">Manage monthly tasks for <span id="monthlyWorkerName">Worker</span></p>
+                            </div>
+                        </div>
+                        <div class="header-right">
+                            <div class="work-summary">
+                                <span class="summary-item completed">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span id="monthlyCompleted">0</span> Completed
+                                </span>
+                                <span class="summary-item pending">
+                                    <i class="fas fa-clock"></i>
+                                    <span id="monthlyPending">0</span> Pending
+                                </span>
+                            </div>
+                            <button id="addMonthlyWork" class="btn btn-primary">
+                                <i class="fas fa-plus"></i>
+                                Add Monthly Work
+                            </button>
+                        </div>
+                    </div>
+                    <div class="work-filters">
+                        <button class="filter-work-btn active" data-filter="all">All Tasks</button>
+                        <button class="filter-work-btn" data-filter="pending">Pending</button>
+                        <button class="filter-work-btn" data-filter="completed">Completed</button>
+                    </div>
+                    <div id="monthlyWorkList" class="work-list professional">
+                        <!-- Monthly work items will be dynamically added here -->
+                    </div>
+                    <div id="noMonthlyWork" class="empty-state professional-empty">
+                        <div class="empty-icon">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <h3>No Monthly Tasks</h3>
+                        <p>Start by adding monthly work assignments</p>
+                        <button class="btn btn-primary add-first-task" data-type="monthly">
+                            <i class="fas fa-plus"></i>
+                            Add First Task
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Yearly Work Screen -->
+            <div id="yearlyWorkScreen" class="screen">
+                <div class="work-screen-container">
+                    <div class="work-screen-header">
+                        <div class="header-left">
+                            <button id="backToProfileYearly" class="btn btn-back">
+                                <i class="fas fa-arrow-left"></i>
+                                Back to Profile
+                            </button>
+                            <div>
+                                <h2>Yearly Work Management</h2>
+                                <p class="header-subtitle">Manage yearly tasks for <span id="yearlyWorkerName">Worker</span></p>
+                            </div>
+                        </div>
+                        <div class="header-right">
+                            <div class="work-summary">
+                                <span class="summary-item completed">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span id="yearlyCompleted">0</span> Completed
+                                </span>
+                                <span class="summary-item pending">
+                                    <i class="fas fa-clock"></i>
+                                    <span id="yearlyPending">0</span> Pending
+                                </span>
+                            </div>
+                            <button id="addYearlyWork" class="btn btn-primary">
+                                <i class="fas fa-plus"></i>
+                                Add Yearly Work
+                            </button>
+                        </div>
+                    </div>
+                    <div class="work-filters">
+                        <button class="filter-work-btn active" data-filter="all">All Tasks</button>
+                        <button class="filter-work-btn" data-filter="pending">Pending</button>
+                        <button class="filter-work-btn" data-filter="completed">Completed</button>
+                    </div>
+                    <div id="yearlyWorkList" class="work-list professional">
+                        <!-- Yearly work items will be dynamically added here -->
+                    </div>
+                    <div id="noYearlyWork" class="empty-state professional-empty">
+                        <div class="empty-icon">
+                            <i class="fas fa-calendar"></i>
+                        </div>
+                        <h3>No Yearly Tasks</h3>
+                        <p>Start by adding yearly work assignments</p>
+                        <button class="btn btn-primary add-first-task" data-type="yearly">
+                            <i class="fas fa-plus"></i>
+                            Add First Task
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Screen -->
+            <div id="analyticsScreen" class="screen">
+                <div class="page-header">
+                    <h2>Analytics Dashboard</h2>
+                    <p class="page-subtitle">Comprehensive insights into workforce performance</p>
+                </div>
+                <div class="analytics-container">
+                    <div class="analytics-cards">
+                        <div class="analytics-card">
+                            <div class="card-header">
+                                <h3>Overall Performance</h3>
+                                <span class="time-period">This Month</span>
+                            </div>
+                            <div class="performance-chart">
+                                <div class="chart-bar" style="height: 80%">
+                                    <span class="bar-label">Daily</span>
+                                    <span class="bar-value">80%</span>
+                                </div>
+                                <div class="chart-bar" style="height: 65%">
+                                    <span class="bar-label">Monthly</span>
+                                    <span class="bar-value">65%</span>
+                                </div>
+                                <div class="chart-bar" style="height: 90%">
+                                    <span class="bar-label">Yearly</span>
+                                    <span class="bar-value">90%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="analytics-card">
+                            <div class="card-header">
+                                <h3>Task Distribution</h3>
+                                <span class="time-period">By Type</span>
+                            </div>
+                            <div class="distribution-chart">
+                                <div class="distribution-item">
+                                    <div class="distribution-bar daily">
+                                        <span class="dist-label">Daily Tasks</span>
+                                        <span class="dist-value" id="distDaily">45%</span>
+                                    </div>
+                                </div>
+                                <div class="distribution-item">
+                                    <div class="distribution-bar monthly">
+                                        <span class="dist-label">Monthly Tasks</span>
+                                        <span class="dist-value" id="distMonthly">35%</span>
+                                    </div>
+                                </div>
+                                <div class="distribution-item">
+                                    <div class="distribution-bar yearly">
+                                        <span class="dist-label">Yearly Tasks</span>
+                                        <span class="dist-value" id="distYearly">20%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="top-performers">
+                        <h3>Top Performers</h3>
+                        <div class="performers-list" id="topPerformersList">
+                            <!-- Dynamic content -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Work Modal -->
+            <div id="addWorkModal" class="modal professional-modal">
+                <div class="modal-backdrop"></div>
+                <div class="modal-content professional-modal-content">
+                    <div class="modal-header">
+                        <div class="modal-icon">
+                            <i class="fas fa-tasks"></i>
+                        </div>
+                        <div>
+                            <h3 id="modalTitle">Add Work</h3>
+                            <p class="modal-subtitle">Create a new work assignment</p>
+                        </div>
+                        <button id="closeModal" class="close-modal-btn">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <form id="addWorkForm">
+                        <div class="form-group">
+                            <label for="workDescription">
+                                <i class="fas fa-clipboard-list"></i>
+                                Work Description *
+                            </label>
+                            <textarea id="workDescription" rows="5" required placeholder="Enter detailed work description..."></textarea>
+                            <span class="input-helper">Be specific about the task requirements</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="workPriority">
+                                <i class="fas fa-flag"></i>
+                                Priority Level
+                            </label>
+                            <select id="workPriority">
+                                <option value="normal">Normal Priority</option>
+                                <option value="high">High Priority</option>
+                                <option value="urgent">Urgent</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="workDueDate">
+                                <i class="fas fa-calendar"></i>
+                                Due Date
+                            </label>
+                            <input type="date" id="workDueDate">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-plus"></i>
+                                Add Work
+                            </button>
+                            <button type="button" id="cancelAddWork" class="btn btn-secondary">
+                                <i class="fas fa-times"></i>
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Input Styling Toolbar -->
+            <div id="inputStylingToolbar" class="input-styling-toolbar">
+                <div class="toolbar-section">
+                    <label for="inputFontSelector"><i class="fas fa-font"></i> Font</label>
+                    <select id="inputFontSelector" aria-label="Select input font">
+                        <option value="'Segoe UI', sans-serif">Segoe UI</option>
+                        <option value="'Poppins', sans-serif">Poppins</option>
+                        <option value="'Roboto', sans-serif">Roboto</option>
+                        <option value="'Open Sans', sans-serif">Open Sans</option>
+                        <option value="'Lato', sans-serif">Lato</option>
+                        <option value="'Montserrat', sans-serif">Montserrat</option>
+                        <option value="'Merriweather', serif">Merriweather</option>
+                        <option value="'Playfair Display', serif">Playfair Display</option>
+                        <option value="'Source Sans Pro', sans-serif">Source Sans Pro</option>
+                        <option value="'Ubuntu', sans-serif">Ubuntu</option>
+                        <option value="'Nunito', sans-serif">Nunito</option>
+                        <option value="'Raleway', sans-serif">Raleway</option>
+                        <option value="'Oswald', sans-serif">Oswald</option>
+                        <option value="'Lora', serif">Lora</option>
+                        <option value="'PT Sans', sans-serif">PT Sans</option>
+                    </select>
+                </div>
+                <div class="toolbar-section">
+                    <label for="inputColorPicker"><i class="fas fa-palette"></i> Color</label>
+                    <input type="color" id="inputColorPicker" value="#000000" aria-label="Select text color">
+                </div>
+                <div class="toolbar-section">
+                    <label for="inputFontSize"><i class="fas fa-text-height"></i> Size</label>
+                    <input type="range" id="inputFontSize" min="12" max="24" value="16" aria-label="Select font size">
+                    <span id="fontSizeValue">16px</span>
+                </div>
+                <button id="closeToolbar" class="toolbar-close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Settings Modal -->
+            <div id="settingsModal" class="modal professional-modal">
+                <div class="modal-backdrop"></div>
+                <div class="modal-content professional-modal-content settings-modal-content">
+                    <div class="modal-header">
+                        <div class="modal-icon">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <div>
+                            <h3>Settings</h3>
+                            <p class="modal-subtitle">Customize your WorkForce Pro experience</p>
+                        </div>
+                        <button id="closeSettingsModal" class="close-modal-btn">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="settings-content">
+                        <!-- Appearance Settings -->
+                        <div class="settings-section">
+                            <h4><i class="fas fa-palette"></i> Appearance</h4>
+                            
+                            <div class="setting-item">
+                                <label for="settingsFont">
+                                    <span class="setting-label">Application Font</span>
+                                    <span class="setting-helper">Choose your preferred font</span>
+                                </label>
+                                <select id="settingsFont">
+                                    <option value="'Segoe UI', sans-serif">Segoe UI</option>
+                                    <option value="'Poppins', sans-serif">Poppins</option>
+                                    <option value="'Roboto', sans-serif">Roboto</option>
+                                    <option value="'Open Sans', sans-serif">Open Sans</option>
+                                    <option value="'Lato', sans-serif">Lato</option>
+                                    <option value="'Montserrat', sans-serif">Montserrat</option>
+                                    <option value="'Merriweather', serif">Merriweather</option>
+                                    <option value="'Playfair Display', serif">Playfair Display</option>
+                                    <option value="'Source Sans Pro', sans-serif">Source Sans Pro</option>
+                                    <option value="'Ubuntu', sans-serif">Ubuntu</option>
+                                    <option value="'Nunito', sans-serif">Nunito</option>
+                                    <option value="'Raleway', sans-serif">Raleway</option>
+                                    <option value="'Oswald', sans-serif">Oswald</option>
+                                    <option value="'Lora', serif">Lora</option>
+                                    <option value="'PT Sans', sans-serif">PT Sans</option>
+                                </select>
+                            </div>
+
+                            <div class="setting-item">
+                                <label for="settingsTheme">
+                                    <span class="setting-label">Theme</span>
+                                    <span class="setting-helper">Choose color theme</span>
+                                </label>
+                                <select id="settingsTheme">
+                                    <option value="default">Default (Purple/Blue)</option>
+                                    <option value="green">Nature (Green)</option>
+                                    <option value="orange">Warm (Orange)</option>
+                                    <option value="red">Bold (Red)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Data Settings -->
+                        <div class="settings-section">
+                            <h4><i class="fas fa-database"></i> Data Management</h4>
+                            
+                            <div class="setting-item">
+                                <span class="setting-label">Export All Data</span>
+                                <span class="setting-helper">Download complete system data as PDF</span>
+                                <button id="exportAllDataBtn" class="btn btn-primary small-btn">
+                                    <i class="fas fa-download"></i> Export PDF
+                                </button>
+                            </div>
+
+                            <div class="setting-item danger-zone">
+                                <span class="setting-label">Clear All Data</span>
+                                <span class="setting-helper">Permanently delete all workers and tasks</span>
+                                <button id="clearAllDataBtn" class="btn btn-secondary danger-btn">
+                                    <i class="fas fa-trash"></i> Clear Data
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Notification Settings -->
+                        <div class="settings-section">
+                            <h4><i class="fas fa-bell"></i> Notifications</h4>
+                            
+                            <div class="setting-item toggle-item">
+                                <div>
+                                    <span class="setting-label">Task Reminders</span>
+                                    <span class="setting-helper">Get notified about pending tasks</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="taskReminders" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="setting-item toggle-item">
+                                <div>
+                                    <span class="setting-label">Worker Updates</span>
+                                    <span class="setting-helper">Notifications when workers are added/modified</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="workerUpdates" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- About Section -->
+                        <div class="settings-section">
+                            <h4><i class="fas fa-info-circle"></i> About</h4>
+                            
+                            <div class="about-info">
+                                <p><strong>WorkForce Pro</strong></p>
+                                <p>Version 1.0.0</p>
+                                <p>Professional Worker Management System</p>
+                                <p class="about-links">
+                                    <a href="#" class="about-link"><i class="fas fa-question-circle"></i> Help</a>
+                                    <a href="#" class="about-link"><i class="fas fa-envelope"></i> Contact</a>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button id="saveSettingsBtn" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Settings
+                        </button>
+                        <button id="resetSettingsBtn" class="btn btn-secondary">
+                            <i class="fas fa-undo"></i> Reset to Default
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notifications Modal -->
+            <div id="notificationsModal" class="modal professional-modal">
+                <div class="modal-backdrop"></div>
+                <div class="modal-content professional-modal-content notifications-modal-content">
+                    <div class="modal-header">
+                        <div class="modal-icon">
+                            <i class="fas fa-bell"></i>
+                        </div>
+                        <div>
+                            <h3>Notifications</h3>
+                            <p class="modal-subtitle">Stay updated with your system activities</p>
+                        </div>
+                        <button id="closeNotificationsModal" class="close-modal-btn">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="notifications-content">
+                        <div class="notifications-header">
+                            <div class="notification-filters">
+                                <button class="notification-filter active" data-filter="all">All</button>
+                                <button class="notification-filter" data-filter="unread">Unread</button>
+                                <button class="notification-filter" data-filter="tasks">Tasks</button>
+                                <button class="notification-filter" data-filter="workers">Workers</button>
+                            </div>
+                            <button id="markAllReadBtn" class="btn btn-secondary small-btn">
+                                <i class="fas fa-check-double"></i> Dismiss All
+                            </button>
+                        </div>
+
+                        <div id="notificationsList" class="notifications-list">
+                            <!-- Notifications will be dynamically added here -->
+                        </div>
+
+                        <div id="noNotifications" class="no-notifications">
+                            <div class="empty-icon">
+                                <i class="fas fa-bell-slash"></i>
+                            </div>
+                            <h3>No Notifications</h3>
+                            <p>You're all caught up! No new notifications to show.</p>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button id="clearNotificationsBtn" class="btn btn-secondary danger-btn">
+                            <i class="fas fa-trash"></i> Clear All
+                        </button>
+                        <button id="closeNotificationsFooterBtn" class="btn btn-primary">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
