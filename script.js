@@ -42,9 +42,22 @@ async function loadWorkersFromSupabase() {
             const avatar = localAvatar || worker.avatar;
             return { ...worker, avatar };
         });
-        
-        workers = workersWithAvatars;
+
+        // Remove duplicate workers by ID (keep the first occurrence)
+        const uniqueWorkers = [];
+        const seenIds = new Set();
+        for (const worker of workersWithAvatars) {
+            if (!seenIds.has(worker.id)) {
+                seenIds.add(worker.id);
+                uniqueWorkers.push(worker);
+            } else {
+                console.log('Duplicate worker ID removed:', worker.id);
+            }
+        }
+
+        workers = uniqueWorkers;
         console.log('Workers loaded from Supabase:', workers.length);
+        console.log('Unique workers after deduplication:', workers.length);
     } catch (error) {
         console.error('Error loading workers:', error);
         // Fallback to localStorage if Supabase fails
@@ -897,7 +910,14 @@ if (saveWorkerBtn) {
 
         console.log('Creating worker:', newWorker);
 
-        workers.push(newWorker);
+        // Check if worker with same ID already exists (prevent duplicates)
+        const existingWorkerIndex = workers.findIndex(w => w.id === newWorker.id);
+        if (existingWorkerIndex !== -1) {
+            console.log('Worker with same ID already exists, updating instead');
+            workers[existingWorkerIndex] = newWorker;
+        } else {
+            workers.push(newWorker);
+        }
 
         try {
             await saveWorkerToSupabase(newWorker);
@@ -1573,12 +1593,13 @@ document.getElementById('cancelAddWork').addEventListener('click', () => {
     document.getElementById('addWorkForm').reset();
 });
 
-document.getElementById('addWorkForm').addEventListener('submit', (e) => {
+// Handle submit work button click (instead of form submit)
+document.getElementById('submitWorkBtn').addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
 
-    console.log('=== Add Work Form Submitted ===');
+    console.log('=== Add Work Button Clicked ===');
 
     const description = document.getElementById('workDescription').value.trim();
     const priority = document.getElementById('workPriority').value;
@@ -1588,33 +1609,43 @@ document.getElementById('addWorkForm').addEventListener('submit', (e) => {
     console.log('Work type:', currentWorkType);
     console.log('Description:', description);
 
-    if (description && currentWorker && currentWorkType) {
-        const newWork = {
-            id: Date.now().toString(),
-            description: description,
-            status: 'pending',
-            priority: priority,
-            dueDate: dueDate,
-            createdAt: new Date().toISOString()
-        };
-
-        const workKey = `${currentWorkType}Work`;
-        currentWorker[workKey].push(newWork);
-
-        console.log('New work added:', newWork);
-        console.log('Updating worker:', currentWorker.name);
-
-        updateWorkerAndRefresh();
-        addActivity('New task added', `"${description.substring(0, 30)}..." assigned to ${currentWorker.name}`, 'task');
-
-        modal.classList.remove('active');
-        document.getElementById('addWorkForm').reset();
-
-        console.log('Work added successfully');
-    } else {
-        console.error('Cannot add work - missing data');
-        alert('Please select a worker and enter a work description');
+    if (!description) {
+        alert('Please enter a work description');
+        return;
     }
+
+    if (!currentWorker) {
+        alert('Please select a worker first');
+        return;
+    }
+
+    if (!currentWorkType) {
+        alert('Please select a work type');
+        return;
+    }
+
+    const newWork = {
+        id: Date.now().toString(),
+        description: description,
+        status: 'pending',
+        priority: priority,
+        dueDate: dueDate,
+        createdAt: new Date().toISOString()
+    };
+
+    const workKey = `${currentWorkType}Work`;
+    currentWorker[workKey].push(newWork);
+
+    console.log('New work added:', newWork);
+    console.log('Updating worker:', currentWorker.name);
+
+    updateWorkerAndRefresh();
+    addActivity('New task added', `"${description.substring(0, 30)}..." assigned to ${currentWorker.name}`, 'task');
+
+    modal.classList.remove('active');
+    document.getElementById('addWorkForm').reset();
+
+    console.log('Work added successfully');
 });
 
 // Close modal on backdrop click
