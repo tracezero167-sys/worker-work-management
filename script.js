@@ -578,11 +578,14 @@ function createBackdrop() {
     const backdrop = document.createElement('div');
     backdrop.className = 'sidebar-backdrop active';
     
-    backdrop.addEventListener('click', () => {
+    const closeSidebar = () => {
         const sidebar = document.querySelector('.sidebar');
         sidebar.classList.remove('active');
         removeBackdrop();
-    });
+    };
+    
+    backdrop.addEventListener('click', closeSidebar);
+    backdrop.addEventListener('touchstart', closeSidebar);
     
     document.body.appendChild(backdrop);
     console.log('Backdrop created');
