@@ -818,49 +818,46 @@ document.getElementById('addWorkerForm').addEventListener('submit', async (e) =>
     const details = document.getElementById('workerDetails').value.trim();
     const avatarInput = document.getElementById('workerAvatarInput');
     
-    // Handle avatar upload to Supabase Storage
-    let avatarUrl = null;
-    if (avatarInput.files && avatarInput.files[0]) {
-        const workerId = Date.now().toString();
-        avatarUrl = await uploadAvatarToSupabase(avatarInput.files[0], workerId);
-        saveWorkerWithAvatar(avatarUrl, workerId);
-    } else {
-        saveWorkerWithAvatar(null, Date.now().toString());
+    // Validate required fields
+    if (!name || !mobile) {
+        alert('Name and Mobile are required!');
+        isSubmitting = false;
+        return;
     }
     
-    function saveWorkerWithAvatar(avatarUrl, workerId) {
-        if (name && mobile) {
-            const newWorker = {
-                id: workerId,
-                name: name,
-                mobile: mobile,
-                // Note: whatsapp field not in Workers table yet, will add it later
-                department: department,
-                details: details,
-                avatar: avatarUrl,
-                cardColor: '#667eea',
-                dailyWork: [],
-                monthlyWork: [],
-                yearlyWork: [],
-                createdAt: new Date().toISOString(),
-                status: 'active'
-            };
-            
-            workers.push(newWorker);
-            saveWorkerToSupabase(newWorker);
-            addActivity('New worker added', `${name} has been added to the system`, 'worker');
-            
-            document.getElementById('addWorkerForm').reset();
-            showScreen('workerList');
-            
-            // Reset submission flag after a delay
-            setTimeout(() => {
-                isSubmitting = false;
-            }, 1000);
-        } else {
-            isSubmitting = false;
-        }
+    // Handle avatar upload to Supabase Storage
+    let avatarUrl = null;
+    const workerId = Date.now().toString();
+    
+    if (avatarInput.files && avatarInput.files[0]) {
+        avatarUrl = await uploadAvatarToSupabase(avatarInput.files[0], workerId);
     }
+    
+    const newWorker = {
+        id: workerId,
+        name: name,
+        mobile: mobile,
+        // Note: whatsapp field not in Workers table yet, will add it later
+        department: department,
+        details: details,
+        avatar: avatarUrl,
+        cardColor: '#667eea',
+        dailyWork: [],
+        monthlyWork: [],
+        yearlyWork: [],
+        createdAt: new Date().toISOString(),
+        status: 'active'
+    };
+    
+    workers.push(newWorker);
+    await saveWorkerToSupabase(newWorker);
+    addActivity('New worker added', `${name} has been added to the system`, 'worker');
+    
+    document.getElementById('addWorkerForm').reset();
+    showScreen('workerList');
+    
+    // Reset submission flag
+    isSubmitting = false;
 });
 
 function saveWorkers() {
@@ -1012,23 +1009,31 @@ function showWorkerProfile() {
     const avatarContainer = document.getElementById('workerProfileAvatar');
     const icon = avatarContainer.querySelector('.fas.fa-user');
     
+    console.log('Setting avatar for worker:', currentWorker.name);
+    console.log('Avatar URL:', currentWorker.avatar);
+    
     // Remove existing image if any
     const existingImg = avatarContainer.querySelector('img');
     if (existingImg) {
         existingImg.remove();
     }
     
-    console.log('Worker avatar URL:', currentWorker.avatar);
-    
-    if (currentWorker.avatar) {
+    if (currentWorker.avatar && currentWorker.avatar.length > 0) {
         const img = document.createElement('img');
         img.src = currentWorker.avatar;
         img.alt = currentWorker.name;
-        img.onload = () => console.log('Avatar image loaded successfully');
-        img.onerror = () => console.error('Avatar image failed to load');
+        img.style.cssText = 'width: 100%; height: 100%; object-fit: cover; border-radius: 50%;';
+        img.onload = () => {
+            console.log('Avatar image loaded successfully');
+            icon.style.display = 'none';
+        };
+        img.onerror = () => {
+            console.error('Avatar image failed to load:', currentWorker.avatar);
+            icon.style.display = 'block';
+        };
         avatarContainer.appendChild(img);
-        icon.style.display = 'none';
     } else {
+        console.log('No avatar URL provided');
         icon.style.display = 'block';
     }
     
