@@ -768,14 +768,19 @@ document.querySelectorAll('.stat-card').forEach(card => {
 });
 
 function updateDashboardStats() {
+    console.log('=== Updating Dashboard Stats ===');
+    console.log('Total workers:', workers.length);
+
     const totalWorkers = workers.length;
     let activeTasks = 0;
     let completedTasks = 0;
     let pendingTasks = 0;
-    
+
     workers.forEach(worker => {
+        console.log(`Worker: ${worker.name}`);
         ['dailyWork', 'monthlyWork', 'yearlyWork'].forEach(workType => {
             if (Array.isArray(worker[workType])) {
+                console.log(`  ${workType}: ${worker[workType].length} tasks`);
                 worker[workType].forEach(work => {
                     if (work.status === 'pending') {
                         activeTasks++;
@@ -784,10 +789,14 @@ function updateDashboardStats() {
                         completedTasks++;
                     }
                 });
+            } else {
+                console.log(`  ${workType}: not an array`);
             }
         });
     });
-    
+
+    console.log('Final stats:', { totalWorkers, activeTasks, completedTasks, pendingTasks });
+
     document.getElementById('totalWorkers').textContent = totalWorkers;
     document.getElementById('activeTasks').textContent = activeTasks;
     document.getElementById('completedTasks').textContent = completedTasks;
