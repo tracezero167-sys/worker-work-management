@@ -8,11 +8,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Worker Work Management System | Professional Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=39">
+    <link rel="stylesheet" href="styles.css?v=42">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script src="supabase-config.js?v=39"></script>
+    <script src="supabase-config.js?v=42"></script>
 </head>
 <body>
     <div class="app-container">
@@ -177,42 +177,6 @@
                             <span>Analytics</span>
                         </button>
                     </div>
-                </div>
-
-                <div class="sticky-notes-panel">
-                    <div class="notes-header">
-                        <h2>Sticky Notes</h2>
-                        <button id="addNoteBtn" class="btn btn-primary small-btn">
-                            <i class="fas fa-plus"></i>
-                            New Note
-                        </button>
-                    </div>
-
-                    <div class="note-composer" id="noteComposer">
-                        <div class="note-input-row">
-                            <input type="text" id="noteTitle" placeholder="Title" maxlength="30">
-                            <select id="noteColor" aria-label="Choose note color">
-                                <option value="yellow">🌟 Yellow</option>
-                                <option value="pink">🌸 Pink</option>
-                                <option value="green">🌿 Green</option>
-                                <option value="blue">💙 Blue</option>
-                                <option value="purple">💜 Purple</option>
-                            </select>
-                        </div>
-                        <textarea id="noteText" rows="3" placeholder="Write a quick reminder or update..."></textarea>
-                        <div class="composer-actions">
-                            <button id="saveNoteBtn" class="btn btn-primary">
-                                <i class="fas fa-save"></i>
-                                Save Note
-                            </button>
-                            <button id="clearNoteBtn" class="btn btn-secondary">
-                                <i class="fas fa-eraser"></i>
-                                Clear
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="notesContainer" class="notes-container" aria-live="polite"></div>
                 </div>
 
                 <!-- Recent Activity -->
@@ -1017,6 +981,6 @@
         </main>
     </div>
 
-    <script src="script.js?v=39"></script>
+    <script src="script.js?v=42"></script>
 </body>
 </html>

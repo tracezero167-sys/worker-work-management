@@ -2910,6 +2910,13 @@ body {
 }
 
 @media (max-width: 768px) {
+    .screen {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+        padding: 1rem 0.75rem 4rem;
+    }
+
     .top-header {
         flex-direction: column;
         gap: var(--spacing-md);
@@ -2926,8 +2933,19 @@ body {
     
     .stats-grid {
         grid-template-columns: 1fr;
+        width: 100%;
     }
     
+    .stat-card,
+    .worker-card,
+    .work-option-card.professional,
+    .worker-stat-card,
+    .activity-item,
+    .work-item {
+        min-width: 0;
+        width: 100%;
+    }
+
     .action-buttons {
         grid-template-columns: 1fr;
     }
@@ -2964,6 +2982,18 @@ body {
         flex-direction: column;
     }
     
+    .worker-grid,
+    .worker-list-container,
+    .worker-profile-container,
+    .work-screen-container,
+    .quick-actions,
+    .recent-activity,
+    .work-management-section,
+    .work-options-grid {
+        width: 100%;
+        max-width: 100%;
+    }
+
     .worker-grid {
         grid-template-columns: 1fr;
     }
@@ -2978,6 +3008,10 @@ body {
 }
 
 @media (max-width: 480px) {
+    .main-content {
+        overflow-x: hidden;
+    }
+
     .screen {
         padding: var(--spacing-md);
     }
@@ -2988,10 +3022,48 @@ body {
     
     .stat-card {
         padding: var(--spacing-md);
+        min-height: 130px;
     }
-    
+
+    .stat-value {
+        font-size: clamp(1.5rem, 5vw, 2rem);
+    }
+
+    .stat-content h3 {
+        font-size: 0.82rem;
+    }
+
     .page-header h2 {
         font-size: 1.5rem;
+    }
+
+    .action-btn {
+        min-height: 54px;
+        padding: 0.9rem 1rem;
+    }
+
+    .activity-item {
+        align-items: flex-start;
+    }
+
+    .activity-content {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .activity-text {
+        word-break: break-word;
+    }
+
+    .worker-card {
+        min-height: 170px;
+        padding: var(--spacing-sm);
+    }
+
+    .worker-card h3,
+    .worker-card p {
+        word-break: break-word;
+        overflow-wrap: anywhere;
     }
     
     .form-row {

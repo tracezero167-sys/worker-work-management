@@ -39,128 +39,266 @@ function writeLocalStorageJson(key, value) {
     }
 }
 
+function normalizeWorkerRecord(worker = {}) {
+    const normalizedWorker = {
+        ...worker,
+        dailyWork: Array.isArray(worker.dailyWork) ? worker.dailyWork : [],
+        monthlyWork: Array.isArray(worker.monthlyWork) ? worker.monthlyWork : [],
+        yearlyWork: Array.isArray(worker.yearlyWork) ? worker.yearlyWork : [],
+        status: worker.status || 'active',
+        updatedAt: worker.updatedAt || worker.createdAt || new Date().toISOString(),
+        createdAt: worker.createdAt || new Date().toISOString()
+    };
+
+    return normalizedWorker;
+}
+
+function mergeTaskLists(primary = [], secondary = []) {
+    const combined = [...(Array.isArray(primary) ? primary : []), ...(Array.isArray(secondary) ? secondary : [])];
+    const uniqueByKey = new Map();
+
+    combined.forEach((task) => {
+        const key = task && task.id ? String(task.id) : JSON.stringify({
+            description: task?.description || '',
+            dueDate: task?.dueDate || '',
+            status: task?.status || '',
+            createdAt: task?.createdAt || ''
+        });
+
+        const existing = uniqueByKey.get(key);
+        if (!existing) {
+            uniqueByKey.set(key, task);
+            return;
+        }
+
+        const existingUpdatedAt = Date.parse(existing.updatedAt || existing.createdAt || '1970-01-01T00:00:00.000Z');
+        const incomingUpdatedAt = Date.parse(task.updatedAt || task.createdAt || '1970-01-01T00:00:00.000Z');
+
+        if (incomingUpdatedAt >= existingUpdatedAt) {
+            uniqueByKey.set(key, task);
+        }
+    });
+
+    return Array.from(uniqueByKey.values());
+}
+
+function mergeWorkerRecords(localWorker = {}, remoteWorker = {}) {
+    const local = normalizeWorkerRecord(localWorker);
+    const remote = normalizeWorkerRecord(remoteWorker);
+
+    const localUpdated = Date.parse(local.updatedAt || local.createdAt || '1970-01-01T00:00:00.000Z');
+    const remoteUpdated = Date.parse(remote.updatedAt || remote.createdAt || '1970-01-01T00:00:00.000Z');
+    const winner = remoteUpdated >= localUpdated ? remote : local;
+
+    return normalizeWorkerRecord({
+        ...local,
+        ...remote,
+        ...winner,
+        id: remote.id || local.id,
+        avatar: remote.avatar || local.avatar || '',
+        cardColor: remote.cardColor || local.cardColor || '#667eea',
+        dailyWork: mergeTaskLists(local.dailyWork, remote.dailyWork),
+        monthlyWork: mergeTaskLists(local.monthlyWork, remote.monthlyWork),
+        yearlyWork: mergeTaskLists(local.yearlyWork, remote.yearlyWork),
+        updatedAt: winner.updatedAt || winner.createdAt || new Date().toISOString(),
+        createdAt: winner.createdAt || local.createdAt || remote.createdAt || new Date().toISOString(),
+        status: remote.status || local.status || 'active'
+    });
+}
+
+function syncCurrentWorkerWithLatestData() {
+    if (!currentWorker || !workers.length) return;
+
+    const latestWorker = workers.find((worker) => String(worker.id) === String(currentWorker.id));
+
+    if (!latestWorker) {
+        currentWorker = null;
+        return;
+    }
+
+    currentWorker = normalizeWorkerRecord(latestWorker);
+
+    if (currentWorkType && typeof renderWorkList === 'function') {
+        renderWorkList(currentWorkType);
+    }
+
+    if (document.getElementById('workerProfileScreen')?.classList.contains('active') && typeof showWorkerProfile === 'function') {
+        showWorkerProfile();
+    }
+}
+
+function queueWorkerSync(worker) {
+    const pending = readLocalStorageJson('pendingWorkerSync', []);
+    const filtered = pending.filter((item) => String(item.id) !== String(worker.id));
+    filtered.push(normalizeWorkerRecord(worker));
+    writeLocalStorageJson('pendingWorkerSync', filtered);
+}
+
+async function flushPendingWorkerSync() {
+    if (!window.supabase) return;
+
+    const pending = readLocalStorageJson('pendingWorkerSync', []);
+    if (!pending.length) return;
+
+    for (const worker of pending) {
+        try {
+            await saveWorkerToSupabase(worker);
+        } catch (error) {
+            console.warn('Queued worker sync failed again:', error);
+            break;
+        }
+    }
+
+    writeLocalStorageJson('pendingWorkerSync', []);
+}
+
 // Supabase Functions
 function persistWorkersToLocalStorage() {
-    writeLocalStorageJson('workers', workers);
+    writeLocalStorageJson('workers', workers.map(normalizeWorkerRecord));
 }
 
 function restoreWorkersFromLocalStorage() {
     const savedWorkers = readLocalStorageJson('workers', []);
     if (Array.isArray(savedWorkers) && savedWorkers.length > 0) {
-        workers = savedWorkers.map(worker => ({
-            ...worker,
-            dailyWork: Array.isArray(worker.dailyWork) ? worker.dailyWork : [],
-            monthlyWork: Array.isArray(worker.monthlyWork) ? worker.monthlyWork : [],
-            yearlyWork: Array.isArray(worker.yearlyWork) ? worker.yearlyWork : []
-        }));
+        workers = savedWorkers.map(normalizeWorkerRecord);
         return true;
     }
     return false;
 }
 
 async function loadWorkersFromSupabase() {
-    const localWorkers = JSON.parse(localStorage.getItem('workers')) || [];
+    const localWorkers = readLocalStorageJson('workers', []).map(normalizeWorkerRecord);
 
     try {
-        if (typeof window.supabase === 'undefined') {
+        if (typeof window.supabase === 'undefined' || window.supabase === null) {
             throw new Error('Supabase not initialized');
         }
-        
-        const { data, error } = await window.supabase
-            .from('Workers')
-            .select('*');
-        
-        if (error) throw error;
-        
-        const rows = Array.isArray(data) && data.length > 0 ? data : localWorkers;
-        const workersWithArrays = rows.map(worker => ({
-            ...worker,
-            dailyWork: Array.isArray(worker.dailyWork) ? worker.dailyWork : [],
-            monthlyWork: Array.isArray(worker.monthlyWork) ? worker.monthlyWork : [],
-            yearlyWork: Array.isArray(worker.yearlyWork) ? worker.yearlyWork : []
-        }));
-        
-        const workersWithAvatars = workersWithArrays.map(worker => {
-            const localAvatar = loadAvatarFromLocal(worker.id);
-            const avatar = localAvatar || worker.avatar;
-            return { ...worker, avatar };
-        });
 
-        const uniqueWorkers = [];
-        const seenIds = new Set();
-        for (const worker of workersWithAvatars) {
-            if (!seenIds.has(worker.id)) {
-                seenIds.add(worker.id);
-                uniqueWorkers.push(worker);
+        const { data, error } = await window.supabase
+            .from('workers')
+            .select('*');
+
+        if (error) throw error;
+
+        const remoteWorkers = Array.isArray(data) ? data.map(normalizeWorkerRecord) : [];
+        const mergedWorkers = new Map();
+
+        for (const worker of [...remoteWorkers, ...localWorkers]) {
+            const normalized = normalizeWorkerRecord(worker);
+            const key = String(normalized.id ?? normalized.name ?? `worker-${Math.random()}`);
+            const existing = mergedWorkers.get(key);
+            mergedWorkers.set(key, existing ? mergeWorkerRecords(existing, normalized) : normalized);
+        }
+
+        workers = Array.from(mergedWorkers.values())
+            .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
+            .map(normalizeWorkerRecord);
+
+        if (workers.length === 0 && localWorkers.length > 0) {
+            workers = localWorkers;
+        }
+
+        syncCurrentWorkerWithLatestData();
+        persistWorkersToLocalStorage();
+        console.log('Workers rehydrated with shared task data:', workers.length);
+    } catch (error) {
+        console.error('Error loading workers:', error);
+        workers = localWorkers.map(normalizeWorkerRecord);
+        persistWorkersToLocalStorage();
+    }
+}
+
+async function refreshWorkersFromSupabase() {
+    const localWorkers = readLocalStorageJson('workers', []).map(normalizeWorkerRecord);
+
+    try {
+        if (typeof window.supabase === 'undefined' || window.supabase === null) {
+            return;
+        }
+
+        const { data, error } = await window.supabase
+            .from('workers')
+            .select('*');
+
+        if (error) throw error;
+
+        const remoteWorkers = Array.isArray(data) ? data.map(normalizeWorkerRecord) : [];
+        const mergedWorkers = new Map();
+
+        for (const worker of [...remoteWorkers, ...localWorkers]) {
+            const normalized = normalizeWorkerRecord(worker);
+            const key = String(normalized.id ?? normalized.name ?? `worker-${Math.random()}`);
+            const existing = mergedWorkers.get(key);
+            mergedWorkers.set(key, existing ? mergeWorkerRecords(existing, normalized) : normalized);
+        }
+
+        const refreshedWorkers = Array.from(mergedWorkers.values())
+            .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
+            .map(normalizeWorkerRecord);
+
+        if (refreshedWorkers.length > 0 || localWorkers.length > 0) {
+            workers = refreshedWorkers.length > 0 ? refreshedWorkers : localWorkers;
+            syncCurrentWorkerWithLatestData();
+            persistWorkersToLocalStorage();
+            if (typeof renderWorkerList === 'function') {
+                renderWorkerList();
+            }
+            if (typeof updateDashboardStats === 'function') {
+                updateDashboardStats();
             }
         }
 
-        workers = uniqueWorkers;
-        persistWorkersToLocalStorage();
-        console.log('Workers loaded from Supabase:', workers.length);
+        console.log('Cloud sync refresh complete. workers:', workers.length);
     } catch (error) {
-        console.error('Error loading workers:', error);
-        // Fallback to localStorage if Supabase fails
-        const savedWorkers = JSON.parse(localStorage.getItem('workers')) || [];
-        if (Array.isArray(savedWorkers) && savedWorkers.length > 0) {
-            workers = savedWorkers.map(worker => ({
-                ...worker,
-                dailyWork: Array.isArray(worker.dailyWork) ? worker.dailyWork : [],
-                monthlyWork: Array.isArray(worker.monthlyWork) ? worker.monthlyWork : [],
-                yearlyWork: Array.isArray(worker.yearlyWork) ? worker.yearlyWork : []
-            }));
-            console.log('Workers loaded from localStorage fallback:', workers.length);
-        } else {
-            workers = [];
-        }
+        console.warn('Cloud refresh failed, keeping local workers:', error.message);
     }
 }
 
 async function saveWorkerToSupabase(worker) {
     try {
-        // Only include columns that exist in the Workers table
-        // Avatar URL will be stored if uploaded to Supabase Storage
+        const normalizedWorker = normalizeWorkerRecord(worker);
         const workerData = {
-            id: worker.id,
-            name: worker.name,
-            mobile: worker.mobile,
-            department: worker.department,
-            details: worker.details,
-            avatar: worker.avatar || '', // Store avatar URL or empty string
-            cardColor: worker.cardColor,
-            dailyWork: worker.dailyWork,
-            monthlyWork: worker.monthlyWork,
-            yearlyWork: worker.yearlyWork,
-            createdAt: worker.createdAt,
-            status: worker.status
+            id: normalizedWorker.id,
+            name: normalizedWorker.name,
+            mobile: normalizedWorker.mobile,
+            department: normalizedWorker.department,
+            details: normalizedWorker.details,
+            avatar: normalizedWorker.avatar || '',
+            cardColor: normalizedWorker.cardColor,
+            dailyWork: normalizedWorker.dailyWork,
+            monthlyWork: normalizedWorker.monthlyWork,
+            yearlyWork: normalizedWorker.yearlyWork,
+            createdAt: normalizedWorker.createdAt,
+            updatedAt: normalizedWorker.updatedAt,
+            status: normalizedWorker.status
         };
-        
+
+        console.log('Saving worker to Supabase:', normalizedWorker.name);
         const { error } = await window.supabase
-            .from('Workers')
+            .from('workers')
             .upsert(workerData);
-        
+
         if (error) throw error;
-        console.log('Worker saved to Supabase:', worker.id);
+        console.log('Worker saved to Supabase:', normalizedWorker.id);
     } catch (error) {
-        console.error('Error saving worker:', error);
-        const localWorkers = JSON.parse(localStorage.getItem('workers')) || [];
-        const index = localWorkers.findIndex(w => w.id === worker.id);
-        if (index !== -1) {
-            localWorkers[index] = worker;
-        } else {
-            localWorkers.push(worker);
-        }
-        localStorage.setItem('workers', JSON.stringify(localWorkers));
+        console.error('Error saving worker to Supabase:', error);
+        queueWorkerSync(worker);
     }
 
-    const localWorkers = JSON.parse(localStorage.getItem('workers')) || [];
-    const index = localWorkers.findIndex(w => w.id === worker.id);
+    const localWorkers = readLocalStorageJson('workers', []);
+    const index = localWorkers.findIndex(w => String(w.id) === String(worker.id));
+    const updatedWorker = normalizeWorkerRecord({
+        ...worker,
+        updatedAt: new Date().toISOString()
+    });
+
     if (index !== -1) {
-        localWorkers[index] = worker;
+        localWorkers[index] = updatedWorker;
     } else {
-        localWorkers.push(worker);
+        localWorkers.push(updatedWorker);
     }
-    localStorage.setItem('workers', JSON.stringify(localWorkers));
+
+    writeLocalStorageJson('workers', localWorkers);
     persistWorkersToLocalStorage();
 }
 
@@ -214,7 +352,7 @@ function loadAvatarFromLocal(workerId) {
 async function deleteWorkerFromSupabase(workerId) {
     try {
         const { error } = await window.supabase
-            .from('Workers')
+            .from('workers')
             .delete()
             .eq('id', workerId);
         
@@ -270,99 +408,19 @@ async function saveActivityToSupabase(activity) {
 }
 
 async function loadNotesFromSupabase() {
-    try {
-        if (typeof window.supabase === 'undefined') {
-            throw new Error('Supabase not initialized');
-        }
-        
-        const { data, error } = await window.supabase
-            .from('notes')
-            .select('*');
-        
-        if (error) throw error;
-        notes = data || [];
-        
-        if (notes.length === 0) {
-            // Add default notes if none exist
-            notes = [
-                {
-                    id: 'note-demo-1',
-                    title: 'Delivery Plan',
-                    text: 'Need to verify route timings and assign extra support for Sunday shifts.',
-                    color: 'yellow',
-                    rotate: -2
-                },
-                {
-                    id: 'note-demo-2',
-                    title: 'Safety Check',
-                    text: 'Inspect helmets and check maintenance tools before the next shift.',
-                    color: 'pink',
-                    rotate: 2
-                }
-            ];
-            // Save default notes to Supabase
-            for (const note of notes) {
-                await window.supabase.from('notes').upsert(note);
-            }
-        }
-        console.log('Notes loaded from Supabase:', notes.length);
-    } catch (error) {
-        console.error('Error loading notes:', error);
-        notes = JSON.parse(localStorage.getItem('stickyNotes')) || [
-            {
-                id: 'note-demo-1',
-                title: 'Delivery Plan',
-                text: 'Need to verify route timings and assign extra support for Sunday shifts.',
-                color: 'yellow',
-                rotate: -2
-            },
-            {
-                id: 'note-demo-2',
-                title: 'Safety Check',
-                text: 'Inspect helmets and check maintenance tools before the next shift.',
-                color: 'pink',
-                rotate: 2
-            }
-        ];
-    }
+    // Sticky notes feature removed from UI
+    console.log('Sticky notes feature disabled');
+    notes = [];
 }
 
 async function saveNoteToSupabase(note) {
-    try {
-        const { error } = await window.supabase
-            .from('notes')
-            .upsert(note);
-        
-        if (error) throw error;
-        console.log('Note saved to Supabase:', note.id);
-    } catch (error) {
-        console.error('Error saving note:', error);
-        const localNotes = JSON.parse(localStorage.getItem('stickyNotes')) || [];
-        const index = localNotes.findIndex(n => n.id === note.id);
-        if (index !== -1) {
-            localNotes[index] = note;
-        } else {
-            localNotes.unshift(note);
-        }
-        localStorage.setItem('stickyNotes', JSON.stringify(localNotes));
-    }
+    // Sticky notes feature removed from UI
+    console.log('Sticky notes feature disabled');
 }
 
 async function deleteNoteFromSupabase(noteId) {
-    try {
-        const { error } = await window.supabase
-            .from('notes')
-            .delete()
-            .eq('id', noteId);
-        
-        if (error) throw error;
-        console.log('Note deleted from Supabase:', noteId);
-    } catch (error) {
-        console.error('Error deleting note:', error);
-        const localNotes = JSON.parse(localStorage.getItem('stickyNotes')) || [];
-        const filtered = localNotes.filter(n => n.id !== noteId);
-        localStorage.setItem('stickyNotes', JSON.stringify(filtered));
-    }
+    // Sticky notes feature removed from UI
+    console.log('Sticky notes feature disabled');
 }
 
 async function loadSettingsFromSupabase() {
@@ -437,9 +495,12 @@ async function saveSettingsToSupabase() {
 async function loadAllData() {
     await Promise.all([
         loadWorkersFromSupabase(),
-        loadActivitiesFromSupabase(),
-        loadNotesFromSupabase()
+        loadActivitiesFromSupabase()
     ]);
+
+    if (window.supabase) {
+        await flushPendingWorkerSync();
+    }
 
     if (ENABLE_SUPABASE_SETTINGS_SYNC) {
         await loadSettingsFromSupabase();
@@ -447,7 +508,7 @@ async function loadAllData() {
         inputStylingSettings = readLocalStorageJson('inputStylingSettings', {});
     }
 
-    console.log('All data loaded from Supabase');
+    console.log('All data loaded from shared storage');
 }
 
 // DOM Elements
@@ -463,10 +524,6 @@ const screens = {
 };
 
 const fontSelector = document.getElementById('fontSelector');
-const noteTitleInput = document.getElementById('noteTitle');
-const noteTextInput = document.getElementById('noteText');
-const noteColorSelect = document.getElementById('noteColor');
-const notesContainer = document.getElementById('notesContainer');
 
 // Apply theme colors
 function applyTheme(theme) {
@@ -529,67 +586,13 @@ function saveNotes() {
 }
 
 function renderNotes() {
-    if (!notesContainer) return;
-
-    if (!notes.length) {
-        notesContainer.innerHTML = '<div class="empty-notes">✨ No notes yet. Add a colorful reminder for your team!</div>';
-        return;
-    }
-
-    const noteMarkup = notes.map((note, index) => `
-        <article class="sticky-note ${note.color}" style="--note-rotate: ${note.rotate || 0}deg; animation-delay: ${index * 0.1}s;">
-            <div class="note-pin"></div>
-            <h4>${escapeHtml(note.title || 'Untitled')}</h4>
-            <p>${escapeHtml(note.text || '')}</p>
-            <div class="note-actions">
-                <button class="note-delete" data-note-id="${note.id}" type="button">🗑️ Delete</button>
-            </div>
-        </article>
-    `).join('');
-
-    notesContainer.innerHTML = noteMarkup;
-
-    document.querySelectorAll('.note-delete').forEach((button) => {
-        button.addEventListener('click', () => {
-            const { noteId } = button.dataset;
-            const noteElement = button.closest('.sticky-note');
-            noteElement.style.transform = 'scale(0.8) rotate(10deg)';
-            noteElement.style.opacity = '0';
-            
-            setTimeout(() => {
-                notes = notes.filter((note) => note.id !== noteId);
-                deleteNoteFromSupabase(noteId);
-                renderNotes();
-            }, 300);
-        });
-    });
+    // Sticky notes feature removed from UI
+    console.log('Sticky notes feature disabled');
 }
 
 function addNote() {
-    const title = noteTitleInput.value.trim();
-    const text = noteTextInput.value.trim();
-    const color = noteColorSelect.value;
-
-    if (!text) {
-        noteTextInput.focus();
-        return;
-    }
-
-    const newNote = {
-        id: Date.now().toString(),
-        title: title || 'Quick Note',
-        text,
-        color,
-        rotate: ((Math.random() * 5) - 2.5)
-    };
-
-    notes.unshift(newNote);
-    saveNoteToSupabase(newNote);
-    renderNotes();
-    noteTitleInput.value = '';
-    noteTextInput.value = '';
-    noteColorSelect.value = 'yellow';
-    noteTitleInput.focus();
+    // Sticky notes feature removed from UI
+    console.log('Sticky notes feature disabled');
 }
 
 if (fontSelector) {
@@ -620,60 +623,29 @@ if (fontSelector) {
     });
 }
 
-if (document.getElementById('saveNoteBtn')) {
-    document.getElementById('saveNoteBtn').addEventListener('click', addNote);
-}
-
-if (document.getElementById('clearNoteBtn')) {
-    document.getElementById('clearNoteBtn').addEventListener('click', () => {
-        noteTitleInput.value = '';
-        noteTextInput.value = '';
-        noteColorSelect.value = 'yellow';
-        noteTitleInput.focus();
-    });
-}
-
-if (document.getElementById('addNoteBtn')) {
-    document.getElementById('addNoteBtn').addEventListener('click', () => {
-        noteTitleInput.focus();
-        const composer = document.getElementById('noteComposer');
-        composer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
-}
-
 // Initialize Supabase and load data
 if (typeof window.supabase !== 'undefined') {
     loadAllData().then(() => {
         console.log('All data loaded, initializing UI');
         applySavedFont();
-        renderNotes();
         renderWorkerList();
         updateDashboardStats();
+
+        window.addEventListener('focus', () => {
+            refreshWorkersFromSupabase();
+        });
+
+        setInterval(() => {
+            refreshWorkersFromSupabase();
+        }, 10000);
     });
 } else {
     // Fallback to localStorage if Supabase not initialized
     console.log('Supabase not initialized, using localStorage');
     workers = JSON.parse(localStorage.getItem('workers')) || [];
     activities = JSON.parse(localStorage.getItem('activities')) || [];
-    notes = JSON.parse(localStorage.getItem('stickyNotes')) || [
-        {
-            id: 'note-demo-1',
-            title: 'Delivery Plan',
-            text: 'Need to verify route timings and assign extra support for Sunday shifts.',
-            color: 'yellow',
-            rotate: -2
-        },
-        {
-            id: 'note-demo-2',
-            title: 'Safety Check',
-            text: 'Inspect helmets and check maintenance tools before the next shift.',
-            color: 'pink',
-            rotate: 2
-        }
-    ];
     inputStylingSettings = JSON.parse(localStorage.getItem('inputStylingSettings')) || {};
     applySavedFont();
-    renderNotes();
     renderWorkerList();
     updateDashboardStats();
 }
@@ -1049,15 +1021,15 @@ if (saveWorkerBtn) {
             id: workerId,
             name: name,
             mobile: mobile,
-            // Note: whatsapp field not in Workers table yet, will add it later
             department: department,
             details: details,
-            avatar: null, // Avatar stored in localStorage only (device-specific)
+            avatar: null,
             cardColor: '#667eea',
             dailyWork: [],
             monthlyWork: [],
             yearlyWork: [],
             createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
             status: 'active'
         };
 
@@ -1226,7 +1198,7 @@ async function deleteWorker(workerId) {
         // Delete from Supabase - specific worker only
         console.log('Deleting from Supabase with ID:', workerId);
         const { error: supabaseError, count } = await window.supabase
-            .from('Workers')
+            .from('workers')
             .delete()
             .eq('id', workerId)
             .select();
@@ -1655,14 +1627,15 @@ function renderWorkList(workType) {
 
 function markAsDone(workId) {
     if (!currentWorker || !currentWorkType) return;
-    
+
     const workKey = `${currentWorkType}Work`;
     const work = currentWorker[workKey].find(w => w.id === workId);
-    
+
     if (work) {
         work.status = 'done';
         work.completedAt = new Date().toISOString();
-        
+        work.updatedAt = new Date().toISOString();
+
         updateWorkerAndRefresh();
         addActivity('Task completed', `"${work.description.substring(0, 30)}..." marked as done`, 'task');
     }
@@ -1670,29 +1643,31 @@ function markAsDone(workId) {
 
 function markAsPending(workId) {
     if (!currentWorker || !currentWorkType) return;
-    
+
     const workKey = `${currentWorkType}Work`;
     const work = currentWorker[workKey].find(w => w.id === workId);
-    
+
     if (work) {
         work.status = 'pending';
         delete work.completedAt;
-        
+        work.updatedAt = new Date().toISOString();
+
         updateWorkerAndRefresh();
     }
 }
 
 function deleteWork(workId) {
     if (!currentWorker || !currentWorkType) return;
-    
+
     if (confirm('Are you sure you want to delete this work item?')) {
         const workKey = `${currentWorkType}Work`;
         const workIndex = currentWorker[workKey].findIndex(w => w.id === workId);
-        
+
         if (workIndex !== -1) {
             const deletedWork = currentWorker[workKey][workIndex];
             currentWorker[workKey].splice(workIndex, 1);
-            
+            currentWorker.updatedAt = new Date().toISOString();
+
             updateWorkerAndRefresh();
             addActivity('Task deleted', `"${deletedWork.description.substring(0, 30)}..." removed`, 'task');
         }
@@ -1737,12 +1712,24 @@ function sendReminder(workId) {
 }
 
 function updateWorkerAndRefresh() {
-    const workerIndex = workers.findIndex(w => w.id === currentWorker.id);
+    if (!currentWorker) return;
+
+    const normalizedWorker = normalizeWorkerRecord({
+        ...currentWorker,
+        updatedAt: new Date().toISOString()
+    });
+    const workerIndex = workers.findIndex(w => String(w.id) === String(normalizedWorker.id));
+
     if (workerIndex !== -1) {
-        workers[workerIndex] = currentWorker;
-        persistWorkersToLocalStorage();
-        saveWorkerToSupabase(currentWorker);
+        workers[workerIndex] = normalizedWorker;
+    } else {
+        workers.push(normalizedWorker);
     }
+
+    currentWorker = normalizedWorker;
+    persistWorkersToLocalStorage();
+    saveWorkerToSupabase(normalizedWorker);
+
     renderWorkList(currentWorkType);
     updateDashboardStats();
 }
@@ -1813,7 +1800,8 @@ document.getElementById('submitWorkBtn').addEventListener('click', (e) => {
         status: 'pending',
         priority: priority,
         dueDate: dueDate,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
     };
 
     const workKey = `${currentWorkType}Work`;
@@ -2720,7 +2708,6 @@ document.getElementById('clearAllDataBtn').addEventListener('click', async () =>
         if (confirm('This will permanently delete all workers, tasks, and settings from both local storage AND Supabase. Continue?')) {
             // Clear all localStorage data
             localStorage.removeItem('workers');
-            localStorage.removeItem('stickyNotes');
             localStorage.removeItem('appSettings');
             localStorage.removeItem('selectedFont');
             localStorage.removeItem('activities');
@@ -2728,7 +2715,6 @@ document.getElementById('clearAllDataBtn').addEventListener('click', async () =>
             
             // Reset in-memory data
             workers = [];
-            notes = [];
             activities = [];
             inputStylingSettings = {};
             
@@ -2745,10 +2731,6 @@ document.getElementById('clearAllDataBtn').addEventListener('click', async () =>
                     await window.supabase.from('activities').delete().neq('id', 'impossible-id');
                     console.log('All activities deleted from Supabase');
                     
-                    // Delete all notes
-                    await window.supabase.from('notes').delete().neq('id', 'impossible-id');
-                    console.log('All notes deleted from Supabase');
-                    
                     // Delete all settings
                     await window.supabase.from('settings').delete().neq('id', 'impossible-id');
                     console.log('All settings deleted from Supabase');
@@ -2764,7 +2746,6 @@ document.getElementById('clearAllDataBtn').addEventListener('click', async () =>
             
             // Refresh the app
             renderWorkerList();
-            renderNotes();
             updateDashboardStats();
             loadSettings();
             
