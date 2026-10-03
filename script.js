@@ -171,14 +171,22 @@ async function loadWorkersFromSupabase() {
 
     try {
         if (typeof window.supabase === 'undefined' || window.supabase === null) {
-            throw new Error('Supabase not initialized');
+            console.warn('Supabase not initialized, using localStorage only');
+            workers = localWorkers.map(normalizeWorkerRecord);
+            persistWorkersToLocalStorage();
+            return;
         }
 
         const { data, error } = await window.supabase
             .from('workers')
             .select('*');
 
-        if (error) throw error;
+        if (error) {
+            console.warn('Supabase error, using localStorage fallback:', error.message);
+            workers = localWorkers.map(normalizeWorkerRecord);
+            persistWorkersToLocalStorage();
+            return;
+        }
 
         const remoteWorkers = Array.isArray(data) ? data.map(normalizeWorkerRecord) : [];
         const mergedWorkers = new Map();
@@ -202,8 +210,7 @@ async function loadWorkersFromSupabase() {
         persistWorkersToLocalStorage();
         console.log('Workers rehydrated with shared task data:', workers.length);
     } catch (error) {
-        console.error('Error loading workers:', error);
-        // Fallback to localStorage if Supabase fails
+        console.warn('Supabase failed, using localStorage fallback:', error.message);
         workers = localWorkers.map(normalizeWorkerRecord);
         persistWorkersToLocalStorage();
     }
@@ -371,8 +378,10 @@ async function deleteWorkerFromSupabase(workerId) {
 
 async function loadActivitiesFromSupabase() {
     try {
-        if (typeof window.supabase === 'undefined') {
-            throw new Error('Supabase not initialized');
+        if (typeof window.supabase === 'undefined' || window.supabase === null) {
+            console.warn('Supabase not initialized, using localStorage for activities');
+            activities = readLocalStorageJson('activities', []);
+            return;
         }
 
         const { data, error } = await window.supabase
@@ -381,27 +390,51 @@ async function loadActivitiesFromSupabase() {
             .order('timestamp', { ascending: false })
             .limit(10);
 
-        if (error) throw error;
+        if (error) {
+            console.warn('Supabase activities error, using localStorage:', error.message);
+            activities = readLocalStorageJson('activities', []);
+            return;
+        }
+
         activities = data || [];
         console.log('Activities loaded from Supabase:', activities.length);
     } catch (error) {
-        console.error('Error loading activities:', error);
-        // Fallback to localStorage if table doesn't exist
+        console.warn('Activities load failed, using localStorage:', error.message);
         activities = readLocalStorageJson('activities', []);
     }
 }
 
 async function saveActivityToSupabase(activity) {
     try {
+        if (typeof window.supabase === 'undefined' || window.supabase === null) {
+            console.warn('Supabase not initialized, saving activity to localStorage');
+            const localActivities = readLocalStorageJson('activities', []);
+            localActivities.unshift(activity);
+            if (localActivities.length > 10) {
+                localActivities.pop();
+            }
+            writeLocalStorageJson('activities', localActivities);
+            return;
+        }
+
         const { error } = await window.supabase
             .from('activities')
             .upsert(activity);
 
-        if (error) throw error;
+        if (error) {
+            console.warn('Supabase activity save failed, using localStorage:', error.message);
+            const localActivities = readLocalStorageJson('activities', []);
+            localActivities.unshift(activity);
+            if (localActivities.length > 10) {
+                localActivities.pop();
+            }
+            writeLocalStorageJson('activities', localActivities);
+            return;
+        }
+
         console.log('Activity saved to Supabase:', activity.id);
     } catch (error) {
-        console.error('Error saving activity:', error);
-        // Fallback to localStorage if table doesn't exist
+        console.warn('Activity save failed, using localStorage:', error.message);
         const localActivities = readLocalStorageJson('activities', []);
         localActivities.unshift(activity);
         if (localActivities.length > 10) {
@@ -635,20 +668,21 @@ if (typeof window.supabase !== 'undefined') {
         renderWorkerList();
         updateDashboardStats();
 
+        // Only enable auto-refresh if Supabase is working
         window.addEventListener('focus', () => {
             refreshWorkersFromSupabase();
         });
 
         setInterval(() => {
             refreshWorkersFromSupabase();
-        }, 10000);
+        }, 30000); // Increased to 30 seconds to reduce error spam
     });
 } else {
     // Fallback to localStorage if Supabase not initialized
     console.log('Supabase not initialized, using localStorage');
-    workers = JSON.parse(localStorage.getItem('workers')) || [];
-    activities = JSON.parse(localStorage.getItem('activities')) || [];
-    inputStylingSettings = JSON.parse(localStorage.getItem('inputStylingSettings')) || {};
+    workers = readLocalStorageJson('workers', []);
+    activities = readLocalStorageJson('activities', []);
+    inputStylingSettings = readLocalStorageJson('inputStylingSettings', {});
     applySavedFont();
     renderWorkerList();
     updateDashboardStats();
