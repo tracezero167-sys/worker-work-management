@@ -668,14 +668,14 @@ if (typeof window.supabase !== 'undefined') {
         renderWorkerList();
         updateDashboardStats();
 
-        // Only enable auto-refresh if Supabase is working
-        window.addEventListener('focus', () => {
-            refreshWorkersFromSupabase();
-        });
+        // Disable auto-refresh for now (project may have network issues)
+        // window.addEventListener('focus', () => {
+        //     refreshWorkersFromSupabase();
+        // });
 
-        setInterval(() => {
-            refreshWorkersFromSupabase();
-        }, 30000); // Increased to 30 seconds to reduce error spam
+        // setInterval(() => {
+        //     refreshWorkersFromSupabase();
+        // }, 30000);
     });
 } else {
     // Fallback to localStorage if Supabase not initialized
