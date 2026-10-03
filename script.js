@@ -203,6 +203,7 @@ async function loadWorkersFromSupabase() {
         console.log('Workers rehydrated with shared task data:', workers.length);
     } catch (error) {
         console.error('Error loading workers:', error);
+        // Fallback to localStorage if Supabase fails
         workers = localWorkers.map(normalizeWorkerRecord);
         persistWorkersToLocalStorage();
     }
@@ -251,6 +252,7 @@ async function refreshWorkersFromSupabase() {
         console.log('Cloud sync refresh complete. workers:', workers.length);
     } catch (error) {
         console.warn('Cloud refresh failed, keeping local workers:', error.message);
+        // Silently fail - keep using local data
     }
 }
 
@@ -372,19 +374,20 @@ async function loadActivitiesFromSupabase() {
         if (typeof window.supabase === 'undefined') {
             throw new Error('Supabase not initialized');
         }
-        
+
         const { data, error } = await window.supabase
             .from('activities')
             .select('*')
             .order('timestamp', { ascending: false })
             .limit(10);
-        
+
         if (error) throw error;
         activities = data || [];
         console.log('Activities loaded from Supabase:', activities.length);
     } catch (error) {
         console.error('Error loading activities:', error);
-        activities = JSON.parse(localStorage.getItem('activities')) || [];
+        // Fallback to localStorage if table doesn't exist
+        activities = readLocalStorageJson('activities', []);
     }
 }
 
@@ -393,17 +396,18 @@ async function saveActivityToSupabase(activity) {
         const { error } = await window.supabase
             .from('activities')
             .upsert(activity);
-        
+
         if (error) throw error;
         console.log('Activity saved to Supabase:', activity.id);
     } catch (error) {
         console.error('Error saving activity:', error);
-        const localActivities = JSON.parse(localStorage.getItem('activities')) || [];
+        // Fallback to localStorage if table doesn't exist
+        const localActivities = readLocalStorageJson('activities', []);
         localActivities.unshift(activity);
         if (localActivities.length > 10) {
             localActivities.pop();
         }
-        localStorage.setItem('activities', JSON.stringify(localActivities));
+        writeLocalStorageJson('activities', localActivities);
     }
 }
 

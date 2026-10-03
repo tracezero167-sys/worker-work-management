@@ -8,11 +8,23 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Worker Work Management System | Professional Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=42">
+    <link rel="stylesheet" href="styles.css?v=43">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script src="supabase-config.js?v=42"></script>
+    <script>
+        // Supabase Configuration
+        const supabaseUrl = 'https://vmcnpjqrlqmmsaeygbny.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtY25wanJxbHFtbXNhZXlnYm55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MjI0MzQsImV4cCI6MjEwNjQ5ODQzNH0.fHrWm4yruslMbzmjwj1k3Wi_OurFcT64EDHt1LD_0ns';
+
+        // Initialize Supabase
+        if (typeof supabase !== 'undefined') {
+            window.supabase = supabase.createClient(supabaseUrl, supabaseKey);
+            console.log('Supabase initialized successfully');
+        } else {
+            console.error('Supabase SDK not loaded. Make sure supabase.js is loaded before this file.');
+        }
+    </script>
 </head>
 <body>
     <div class="app-container">
@@ -981,6 +993,6 @@
         </main>
     </div>
 
-    <script src="script.js?v=42"></script>
+    <script src="script.js?v=43"></script>
 </body>
 </html>
