@@ -283,12 +283,19 @@ async function saveWorkerToSupabase(worker) {
         };
 
         console.log('Saving worker to Supabase:', normalizedWorker.name);
-        const { error } = await window.supabase
-            .from('workers')
-            .upsert(workerData);
+        console.log('Supabase available:', typeof window.supabase !== 'undefined');
 
-        if (error) throw error;
-        console.log('Worker saved to Supabase:', normalizedWorker.id);
+        if (typeof window.supabase === 'undefined' || window.supabase === null) {
+            console.warn('Supabase not available, saving to localStorage only');
+            queueWorkerSync(worker);
+        } else {
+            const { error } = await window.supabase
+                .from('workers')
+                .upsert(workerData);
+
+            if (error) throw error;
+            console.log('Worker saved to Supabase:', normalizedWorker.id);
+        }
     } catch (error) {
         console.error('Error saving worker to Supabase:', error);
         queueWorkerSync(worker);
@@ -661,25 +668,31 @@ if (fontSelector) {
 }
 
 // Initialize Supabase and load data
+console.log('=== App Initialization ===');
+console.log('Supabase available:', typeof window.supabase !== 'undefined');
+
 if (typeof window.supabase !== 'undefined') {
+    console.log('Supabase client available, loading from cloud');
     loadAllData().then(() => {
         console.log('All data loaded, initializing UI');
         applySavedFont();
         renderWorkerList();
         updateDashboardStats();
 
-        // Disable auto-refresh for now (project may have network issues)
-        // window.addEventListener('focus', () => {
-        //     refreshWorkersFromSupabase();
-        // });
+        // Enable auto-refresh for sync
+        window.addEventListener('focus', () => {
+            console.log('Window focused, refreshing data');
+            refreshWorkersFromSupabase();
+        });
 
-        // setInterval(() => {
-        //     refreshWorkersFromSupabase();
-        // }, 30000);
+        setInterval(() => {
+            console.log('Auto-refreshing data');
+            refreshWorkersFromSupabase();
+        }, 30000);
     });
 } else {
     // Fallback to localStorage if Supabase not initialized
-    console.log('Supabase not initialized, using localStorage');
+    console.warn('Supabase not initialized, using localStorage ONLY');
     workers = readLocalStorageJson('workers', []);
     activities = readLocalStorageJson('activities', []);
     inputStylingSettings = readLocalStorageJson('inputStylingSettings', {});
